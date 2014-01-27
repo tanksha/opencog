@@ -1,0 +1,1 @@
+/usr/bin/c++  -fPIC -Wall -fPIC -Wno-variadic-macros -fopenmp -std=gnu++0x -O2 -g -fstack-protector -Wl,--enable-new-dtags -shared -Wl,-soname,libquantitative-types.so -o libquantitative-types.so CMakeFiles/quantitative-types.dir/QuantitativeTypes.cc.o -lpthread -Wl,-rpath,:::::::::::::::::::::: 

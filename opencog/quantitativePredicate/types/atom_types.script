@@ -1,0 +1,17 @@
+//
+// Script for automatic "atom type" generation. For more more information,
+// consult  the documentation in the opencog/atomspace/README file.
+//
+// Please note: some of the types below are used only via the scheme bindings.
+// Thus, just because you can comment some of these out, and the code still
+// compiles, that does not mean that these types are unused!  Be sure to grep
+// for the CamelCase names, to see if they show up elsewhere!
+//
+// ====================================================================
+// nodes and links for handling quantitative data
+//see  ty
+DYNAMIC_NUMBER_NODE <- NODE
+QUANTITATIVE_PREDICATE_NODE <- NODE
+//
+SCHEMA_VALUE_NEAREST_LINK <- ORDERED_LINK
+QUANTITATIVE_VALUE_DISTRIBUTION_LINK <- ORDERED_LINK
