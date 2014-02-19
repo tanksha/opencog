@@ -1,3 +1,7 @@
+// atom_types.script for PLN example
+// Instructions: Replace opencog/atomspace/atom_types.script
+// Necessary until this issue is completed: https://github.com/opencog/opencog/issues/484
+
 //
 // Script for automatic "atom type" generation. For more more information,
 // consult  the documentation in the opencog/atomspace/README file.
@@ -114,3 +118,27 @@ ANCHOR_NODE <- NODE
 // Link for mathematices. Not in use at the time of recatgorizing, from
 // NLP related atom types.
 QUANTITY_LINK <- ORDERED_LINK
+
+// =====================================================================
+// Additional link types from Probabilistic Logic Networks
+PREDICTIVE_IMPLICATION_LINK <- ORDERED_LINK
+TAIL_PREDICTIVE_IMPLICATION_LINK <- ORDERED_LINK
+
+PREDICTIVE_ATTRACTION_LINK <- ORDERED_LINK
+SIMULTANEOUS_AND_LINK <- ORDERED_LINK //AND_LINK
+
+EVENTUAL_SEQUENTIAL_AND_LINK <- ORDERED_LINK "EventualSequentialAND"
+EVENTUAL_PREDICTIVE_IMPLICATION_LINK <- ORDERED_LINK "EventualSequentialImplication"
+
+// ExtInh is redundant with SUBSET_LINK and officially disabled
+// EXTENSIONAL_INHERITANCE_LINK <- ORDERED_LINK
+EXTENSIONAL_SIMILARITY_LINK <- UNORDERED_LINK
+INTENSIONAL_SIMILARITY_LINK <- UNORDERED_LINK
+INTENSIONAL_INHERITANCE_LINK <- ORDERED_LINK
+
+AT_TIME_LINK <- ORDERED_LINK
+ONTOLOGICAL_INHERITANCE_LINK <- ORDERED_LINK
+
+//SIMULTANEOUS_EQUIVALENCE_LINK <- UNORDERED_LINK
+//SEQUENTIAL_AND_LINK <- ORDERED_LINK
+
