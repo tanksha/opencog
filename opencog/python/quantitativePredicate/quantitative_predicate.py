@@ -1,5 +1,5 @@
 from opencog.atomspace import AtomSpace, types, Atom, Handle, TruthValue, types
-import opencog
+import opencog.cogserver
 import zmq
 from threading import Thread
 import json
@@ -15,13 +15,15 @@ class Start(opencog.cogserver.Request):
     SVDL_SIZE = 20
     QUANTILE = 10
     PERSONALITY = 10
+    ZMQ_IP_ADDRESS = '127.0.0.1'
+    ZMQ_PORT = '5563'
     execution_link = None
 
     def contains_qsn(self, execution_link):
         """
          Checks whether the ExecutionLink is related with QuantitativeSchemaNode or not and returns the boolean result of the check
         """
-        el_elements = self.atomspace.get_outgoing(handle=execution_link.h)
+        el_elements = self.atomspace.get_outgoing(execution_link.h)
         for e in el_elements:
             if e.type == types.QuantitativeSchemaNode:
                 return True
@@ -31,11 +33,11 @@ class Start(opencog.cogserver.Request):
         """
         Checks if a SchemaValueRecordLink exists with a given type of QuantitativeSchemaNode and returns the svrl
         """
-        svrl_list = self.atomspace.get_atoms_by_type(t=types.SchemavalueRecordLink)
+        svrl_list = self.atomspace.get_atoms_by_type(t=types.SchemaValueRecordLink)
         for svrl in svrl_list:
-            svrl_elements = self.atomspace.get_outgoing(handle=svrl.h)
+            svrl_elements = self.atomspace.get_outgoing(svrl.h)
             for e in svrl_elements:
-                if e.type == types.QuantitativeSchemanode:
+                if e.type == types.QuantitativeSchemaNode:
                     return svrl
         return None
 
@@ -55,8 +57,8 @@ class Start(opencog.cogserver.Request):
         """
         #check if there is an svrl with the above qsn
         svrl = self.svrl_by_qsn(quantitative_scheme_node)
-        if not (svrl is None):
         #if exists
+        if not (svrl is None):
         # if its not full
             svll = self.atomspace.get_outgoing(svrl.h)[1]
             svll_elements = self.atomspace.get_outgoing(svll.h)
@@ -72,8 +74,9 @@ class Start(opencog.cogserver.Request):
                                                         prefixed=False)
                 svll_elements.append(value_nn_node)
                 svll_elements.append(count_nn_node)
-                svll = self.atomspace.add_link(t=types.SchemaValueListLink, svll_elements, tv=TruthValue(0.0, 0.0))
-                svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, [quantitative_scheme_node, svll],
+                svll = self.atomspace.add_link(t=types.SchemaValueListLink, outgoing=svll_elements,
+                                               tv=TruthValue(0.0, 0.0))
+                svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_scheme_node, svll],
                                                tv=TruthValue(0.0, 0.0))
             else:
                 v = float(self.nn_from_el(self.execution_link).name)
@@ -108,8 +111,9 @@ class Start(opencog.cogserver.Request):
                 self.atomspace.remove(atom=svll_elements[closest_index + 1], recursive=False)
                 svll_elements.insert(closest_index, value_nn_new)
                 svll_elements.insert(closest_index + 1, count_nn_new)
-                svll = self.atomspace.add_link(t=types.SchemaValueListLink, svll_elements, tv=TruthValue(0.0, 0.0))
-                svrl = self.atomspace.add_link(t=types.SchemaValueRecordink, [quantitative_scheme_node, svll],
+                svll = self.atomspace.add_link(t=types.SchemaValueListLink, outgoing=svll_elements,
+                                               tv=TruthValue(0.0, 0.0))
+                svrl = self.atomspace.add_link(t=types.SchemaValueRecordink, outgoing=[quantitative_scheme_node, svll],
                                                tv=TruthValue(0.0, 0.0))
         else:
         #create a new svrl with the new value
@@ -119,14 +123,14 @@ class Start(opencog.cogserver.Request):
             count_nn_new = self.atomspace.add_node(t=types.NumberNode, atom_name="1",
                                                    tv=TruthValue(0.0, 0.0), prefixed=False)
             svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink,
-                                           [quantitative_scheme_node, value_nn_new, count_nn_new],
+                                           outgoing=[quantitative_scheme_node, value_nn_new, count_nn_new],
                                            tv=TruthValue(0.0, 0.0))
 
     def qsn_from_el(self, el):
         """
          Checks whether the ExecutionLink is related with QuantitativeSchemaNode or not and returns the QuantitativeSchemaNode
         """
-        el_elements = self.atomspace.get_outgoing(handle=el.h)
+        el_elements = self.atomspace.get_outgoing(el.h)
         for e in el_elements:
             if e.type == types.QuantitativeSchemaNode:
                 return e
@@ -139,7 +143,7 @@ class Start(opencog.cogserver.Request):
         el_list = []
         all_el = self.atomspace.get_atoms_by_type(t=types.ExecutionLink)
         for e in all_el:
-            outgoing = self.atomspace.get_outgoing(handle=e.h)
+            outgoing = self.atomspace.get_outgoing(e.h)
             for o in outgoing:
                 if o.h == qsn.h:
                     el_list.append(e)
@@ -162,8 +166,8 @@ class Start(opencog.cogserver.Request):
          Returns a sorted list of values in the SchemaValueRecordLink provided
         """
         svd = []
-        svll = self.atomspace.get_outgoing(handle=svrl.h)[1]
-        svll_elements = self.atomspace.get_outgoing(handle=svll.h)
+        svll = self.atomspace.get_outgoing(svrl.h)[1]
+        svll_elements = self.atomspace.get_outgoing(svll.h)
         for i in range(1, len(svll_elements), 2):
             multiplicity = int(svll_elements[i + 1])
             for j in range(0, len(multiplicity)):
@@ -231,7 +235,6 @@ class Start(opencog.cogserver.Request):
                         p = 1
                         break
         self.atomspace.add_link(t=types.EvaluationLink, [qpn, cn], tv=TruthValue(p, confidence))
-
     def run(self, args, atomspace):
         """
         Loads the REST API into a separate thread and invokes it,so that it will continue serving requests in the
@@ -246,20 +249,21 @@ class Start(opencog.cogserver.Request):
     def listener(self):
         """
         A listener hooked to the atomspace for atom related events (here we listen for new ExecutionLink added events and validate
-        thats related with a QuantitativeSchemaNode and update truth values concerned Quantitative atoms)
+        that its related with a QuantitativeSchemaNode and update truth values of concerned Quantitative atoms)
         """
         print 'In module quantitative_predicate'
         context = zmq.Context(1)
         subscriber = context.socket(zmq.SUB)
-        subscriber.connect('tcp://' + zmq.ZMQ_IP_ADDRESS + ':' + zmq.ZMQ_PORT)
+        subscriber.connect('tcp://' + self.ZMQ_IP_ADDRESS + ':' + self.ZMQ_PORT)
         subscriber.setsockopt(zmq.SUBSCRIBE, 'add')
-        subscriber.setsockopt(zmq.SUBSCRIBE, 'remove')
+        #subscriber.setsockopt(zmq.SUBSCRIBE, 'remove')
         while True:
-            address, contents = subscriber.recv_multipart()
+            [address, contents] = subscriber.recv_multipart()
             print '[%s]%s' % (address, contents)
-            atom = json.loads(contents)['atoms']
+            print "INFO:In while loop( listening to atom added)"
+            atom = json.loads(contents)['atom']
             if address == 'add' and atom['type'] == 'ExecutionLink':
-                self.execution_link = self.atomspace[Handle(atom['handle'])]
+                self.execution_link = self.atomspace[Handle(int(atom['handle']))]
                 if self.contains_qsn(self.execution_link):
                     qsn = self.qsn_from_el(self.execution_link)
                     #update SchemaValueRecordLink
@@ -274,3 +278,4 @@ class Start(opencog.cogserver.Request):
                     self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
                     subscriber.close()
                     context.term()
+
