@@ -40,6 +40,9 @@ class Start(opencog.cogserver.Request):
         return None
 
     def nn_from_el(self, el):
+        """
+        Returns the NumberNode in the ExecutionLink provided
+        """
         el_elements = self.atomspace.get_outgoing(handle=el.h)
         for e in el_elements:
             if e.type == types.NumberNode:
@@ -130,6 +133,9 @@ class Start(opencog.cogserver.Request):
         return None
 
     def el_by_qsn(self, qsn):
+        """
+        Returns an ExecutionLink with that contains a given QuantitativeSchemaNode
+        """
         el_list = []
         all_el = self.atomspace.get_atoms_by_type(t=types.ExecutionLink)
         for e in all_el:
@@ -142,17 +148,18 @@ class Start(opencog.cogserver.Request):
         return el_list
 
     def cn_from_el(self, el):
+        """
+        Returns the ConceptNode in the ExecutionLink provided
+        """
         el_elements = self.atomspace.get_outgoing(handle=el.h)
         for e in el_elements:
             if e.type == types.ConceptNode:
                 return e
         return None
 
-    def quantile_borders(self, svrl):
+    def get_svd(self, svrl):
         """
-        Returns the the upper and lower bound set of a quantile
-        eg. if svd =[10,20,30,40,50,60,70,80,90,100] and we need quartile,it will return
-        [10,30,60,90,100]
+         Returns a sorted list of values in the SchemaValueRecordLink provided
         """
         svd = []
         svll = self.atomspace.get_outgoing(handle=svrl.h)[1]
@@ -162,6 +169,14 @@ class Start(opencog.cogserver.Request):
             for j in range(0, len(multiplicity)):
                 svd.append(float(svll_elements[i].name))
         svd.sort()
+        return svd
+
+    def quantile_borders(self, svd):
+        """
+        Returns the the upper and lower bound set of a quantile
+        eg. if svd =[10,20,30,40,50,60,70,80,90,100] and we need quartile,it will return
+        [10,30,60,90,100]
+        """
         # remainder is left since operands are integers
         qsize = len(svd) / self.QUANTILE
         quantile_border = []
@@ -172,7 +187,17 @@ class Start(opencog.cogserver.Request):
             quantile_border.append(svd[len(svd) - 1])
         return quantile_border
 
-    def update_tv(self, quantitative_schema_node):
+    def qpn_of_qsn(self, quantitative_schema_node):
+        """
+        Returns a QuantitativePredicateNode with an identical Name as the QuantitativeSchemaNode
+        """
+        all_qpn = self.atomspace.get_atoms_by_type(t=types.QuantitativePredicateNode)
+        for qpn in all_qpn:
+            if qpn.name == quantitative_schema_node.name:
+                return qpn
+        return None
+
+    def update_tv(self, quantitative_schema_node, qpn):
         """
          Update the truth values
         """
@@ -182,17 +207,30 @@ class Start(opencog.cogserver.Request):
         #svrl := get svrl with the given QuantitativeSchemaNode type
         svrl = self.svrl_by_qsn(quantitative_schema_node)
         #svd := quantize(svrl)
-        border_values = self.quantile_borders(svrl)
+        svd = self.get_svd(svrl)
+        border_values = self.quantile_borders(svd)
+        #create EvaluationLink with p = [(element.value-lbound)*ubound_strength
+        # + (ubound-element.value)*lbound_strength]/(ubound-lbound)
         for el in el_list:
             value_nn = self.nn_from_el(el)
             cn = self.cn_from_el(el)
             value = float(value_nn)
-            for i in range(0,border_values):
-                if value < border_values[i]:
-                    ubound=border_values[i]
-            #create EvaluationLink with p = [(element.value-lbound)*ubound_strength
-        # + (ubound-element.value)*lbound_strength]/(ubound-lbound)
-
+            p = None
+            confidence = len(svd) / (len(svd) + self.PERSONALITY)
+            q_size = len(border_values) - 1
+            for i in range(0, len(border_values)):
+                if value <= border_values[i]:
+                    if i == 0:
+                        p = 0
+                    else:
+                        p = ((value - border_values[i - 1]) * i / q_size) + (
+                            (border_values[i] - value) * (i - 1) / q_size)
+                    break
+                else:
+                    if i == len(border_values) - 1:
+                        p = 1
+                        break
+        self.atomspace.add_link(t=types.EvaluationLink, [qpn, cn], tv=TruthValue(p, confidence))
 
     def run(self, args, atomspace):
         """
@@ -206,6 +244,10 @@ class Start(opencog.cogserver.Request):
 
 
     def listener(self):
+        """
+        A listener hooked to the atomspace for atom related events (here we listen for new ExecutionLink added events and validate
+        thats related with a QuantitativeSchemaNode and update truth values concerned Quantitative atoms)
+        """
         print 'In module quantitative_predicate'
         context = zmq.Context(1)
         subscriber = context.socket(zmq.SUB)
@@ -219,15 +261,16 @@ class Start(opencog.cogserver.Request):
             if address == 'add' and atom['type'] == 'ExecutionLink':
                 self.execution_link = self.atomspace[Handle(atom['handle'])]
                 if self.contains_qsn(self.execution_link):
+                    qsn = self.qsn_from_el(self.execution_link)
                     #update SchemaValueRecordLink
-                    self.update_svrl(self.qsn_from_el(self.execution_link))
-                    self.update_tv(self.qsn_from_el(self.execution_link))
-                    #update truth value
-                    pass
-            subscriber.close()
-            context.term()
-
-
-
-
-
+                    self.update_svrl(qsn)
+                    #check fo QuantitativePredicateNode with same name as QuantitativeSchemaNode
+                    qpn = self.qpn_of_qsn(qsn)
+                    if qpn is None:
+                        qpn = self.atomspace.add_node(t=types.QuantitativeSchemaNode, atom_name=qsn.name,
+                                                      tv=TruthValue(0.0, 0.0), prefixed=False)
+                        #create a QuantitativeSchemaLink
+                    self.atomspace.add_link(t=types.QuantitativePredicateLink, [qpn, qsn], tv=TruthValue(0.0, 0.0))
+                    self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
+                    subscriber.close()
+                    context.term()
