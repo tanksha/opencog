@@ -184,7 +184,7 @@ class Start(opencog.cogserver.Request):
         # remainder is left since operands are integers
         qsize = len(svd) / self.QUANTILE
         quantile_border = []
-        for i in range(0, svd, qsize):
+        for i in range(0, len(svd), qsize):
             quantile_border.append(svd[i])
             #if svd is even, add the last one
         if len(svd) % qsize == 0:
@@ -274,8 +274,12 @@ class Start(opencog.cogserver.Request):
                         qpn = self.atomspace.add_node(t=types.QuantitativeSchemaNode, atom_name=qsn.name,
                                                       tv=TruthValue(0.0, 0.0), prefixed=False)
                         #create a QuantitativeSchemaLink
-                    self.atomspace.add_link(t=types.QuantitativePredicateLink, [qpn, qsn], tv=TruthValue(0.0, 0.0))
-                    self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
+                    self.atomspace.add_link(t=types.QuantitativePredicateLink, outgoing=[qpn, qsn],
+                                            tv=TruthValue(0.0, 0.0))
+                    svd = self.get_svd(self.svrl_by_qsn(qsn))
+                     #if svd is  full
+                    if len(svd) >= self.SVDL_SIZE:
+                        self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
                     subscriber.close()
                     context.term()
 
