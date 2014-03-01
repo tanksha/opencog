@@ -4,7 +4,7 @@ import zmq
 from threading import Thread
 import json
 import math
-
+import logging
 
 class Start(opencog.cogserver.Request):
     summary = 'Start the quantitativePredicate Module'
@@ -23,6 +23,7 @@ class Start(opencog.cogserver.Request):
         """
          Checks whether the ExecutionLink is related with QuantitativeSchemaNode or not and returns the boolean result of the check
         """
+        logging.info("In contains_qsn-searching ExecutionLink by a given QuantitativeShemaNode")
         el_elements = self.atomspace.get_outgoing(execution_link.h)
         for e in el_elements:
             if e.type == types.QuantitativeSchemaNode:
@@ -33,6 +34,7 @@ class Start(opencog.cogserver.Request):
         """
         Checks if a SchemaValueRecordLink exists with a given type of QuantitativeSchemaNode and returns the svrl
         """
+        logging.info("In svrl_by_qsn- searching SchemaValueRecordLink by a given QuantitativeShemaNode")
         svrl_list = self.atomspace.get_atoms_by_type(t=types.SchemaValueRecordLink)
         for svrl in svrl_list:
             svrl_elements = self.atomspace.get_outgoing(svrl.h)
@@ -45,7 +47,12 @@ class Start(opencog.cogserver.Request):
         """
         Returns the NumberNode in the ExecutionLink provided
         """
+<<<<<<< HEAD
         el_elements = self.atomspace.get_outgoing(handle=el.h)
+=======
+        logging.info("In nn_from_el-searching NumberNode in ExecutionLink")
+        el_elements = self.atomspace.get_outgoing(el.h)
+>>>>>>> added logger
         for e in el_elements:
             if e.type == types.NumberNode:
                 return e
@@ -56,6 +63,7 @@ class Start(opencog.cogserver.Request):
          Updates the SchemaValueRecordLink with the given QuantitativeSchemaNode type
         """
         #check if there is an svrl with the above qsn
+        logging.info("In update_svrl- updating content of the SchemaValueRecordLink of the QuantitativeSchemaNode")
         svrl = self.svrl_by_qsn(quantitative_scheme_node)
         #if exists
         if not (svrl is None):
@@ -63,6 +71,7 @@ class Start(opencog.cogserver.Request):
             svll = self.atomspace.get_outgoing(svrl.h)[1]
             svll_elements = self.atomspace.get_outgoing(svll.h)
             if len(svll_elements) < self.SVDL_SIZE:
+                logging.info("Adding new NumberNode")
             # get ref to elements,remove it, add the new on elements set,create a new svrl
                 self.atomspace.remove(atom=svll, recursive=False)
                 self.atomspace.remove(atom=svrl, recursive=False)
@@ -79,23 +88,24 @@ class Start(opencog.cogserver.Request):
                 svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_scheme_node, svll],
                                                tv=TruthValue(0.0, 0.0))
             else:
+                logging.info("Updating truth value")
                 v = float(self.nn_from_el(self.execution_link).name)
                 n_i = 1
                 v_i = 0
                 closest_index = 0
                 diff = 0
-                for i in range(1, len(svll_elements), 2):
+                for i in range(0, len(svll_elements), 2):
                     v_i_tmp = float(svll_elements[i].name)
                     if i == 1:
                         closest_index = i
                         diff = math.fabs(v_i_tmp - v)
-                        n_i = svll_elements[i + 1]
+                        n_i = int(svll_elements[i + 1].name)
                         v_i = v_i_tmp
                     else:
                         if math.fabs(v_i_tmp - v) < diff:
                             diff = math.fabs(v_i_tmp - v)
                             closest_index = i
-                            n_i = svll_elements[i + 1]
+                            n_i = int(svll_elements[i + 1].name)
                             v_i = v_i_tmp
                         else:
                             continue
@@ -113,9 +123,10 @@ class Start(opencog.cogserver.Request):
                 svll_elements.insert(closest_index + 1, count_nn_new)
                 svll = self.atomspace.add_link(t=types.SchemaValueListLink, outgoing=svll_elements,
                                                tv=TruthValue(0.0, 0.0))
-                svrl = self.atomspace.add_link(t=types.SchemaValueRecordink, outgoing=[quantitative_scheme_node, svll],
+                svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_scheme_node, svll],
                                                tv=TruthValue(0.0, 0.0))
         else:
+            logging.info("Creating a new SchemaValueRecordLink")
         #create a new svrl with the new value
             value_nn_new = self.atomspace.add_node(t=types.NumberNode,
                                                    atom_name=self.nn_from_el(self.execution_link).name,
@@ -130,6 +141,7 @@ class Start(opencog.cogserver.Request):
         """
          Checks whether the ExecutionLink is related with QuantitativeSchemaNode or not and returns the QuantitativeSchemaNode
         """
+        logging.info("In qsn_from_el- Searching QuantitativeSchemaNode from ExecutionLink")
         el_elements = self.atomspace.get_outgoing(el.h)
         for e in el_elements:
             if e.type == types.QuantitativeSchemaNode:
@@ -140,6 +152,7 @@ class Start(opencog.cogserver.Request):
         """
         Returns an ExecutionLink with that contains a given QuantitativeSchemaNode
         """
+        logging.info("In el_by_qsn- Searching ExecutionLink by QuantitativeSchemaNode")
         el_list = []
         all_el = self.atomspace.get_atoms_by_type(t=types.ExecutionLink)
         for e in all_el:
@@ -155,7 +168,12 @@ class Start(opencog.cogserver.Request):
         """
         Returns the ConceptNode in the ExecutionLink provided
         """
+<<<<<<< HEAD
         el_elements = self.atomspace.get_outgoing(handle=el.h)
+=======
+        logging.info("In cn_from_el- searching for ConceptNode from ExecutionLink")
+        el_elements = self.atomspace.get_outgoing(el.h)
+>>>>>>> added logger
         for e in el_elements:
             if e.type == types.ConceptNode:
                 return e
@@ -165,12 +183,13 @@ class Start(opencog.cogserver.Request):
         """
          Returns a sorted list of values in the SchemaValueRecordLink provided
         """
+        logging.info("In get_svd - returning SchemaValueDistribution for a SchemaValueRecordLink")
         svd = []
         svll = self.atomspace.get_outgoing(svrl.h)[1]
         svll_elements = self.atomspace.get_outgoing(svll.h)
-        for i in range(1, len(svll_elements), 2):
-            multiplicity = int(svll_elements[i + 1])
-            for j in range(0, len(multiplicity)):
+        for i in range(0, len(svll_elements), 2):
+            multiplicity = int(svll_elements[i + 1].name)
+            for j in range(0, multiplicity):
                 svd.append(float(svll_elements[i].name))
         svd.sort()
         return svd
@@ -181,6 +200,7 @@ class Start(opencog.cogserver.Request):
         eg. if svd =[10,20,30,40,50,60,70,80,90,100] and we need quartile,it will return
         [10,30,60,90,100]
         """
+        logging.info("In quantile_borders- Calculating the quantile borders of a SchemaValueDistribution")
         # remainder is left since operands are integers
         qsize = len(svd) / self.QUANTILE
         quantile_border = []
@@ -195,6 +215,7 @@ class Start(opencog.cogserver.Request):
         """
         Returns a QuantitativePredicateNode with an identical Name as the QuantitativeSchemaNode
         """
+        logging.info("In qpn_from_qsn- Searching for QuantitativePredicateNode from a QuantitativeSchemaNode")
         all_qpn = self.atomspace.get_atoms_by_type(t=types.QuantitativePredicateNode)
         for qpn in all_qpn:
             if qpn.name == quantitative_schema_node.name:
@@ -205,6 +226,7 @@ class Start(opencog.cogserver.Request):
         """
          Update the truth values
         """
+        logging.info("In update_tv- Updating truth value of")
         #update the truth values as
         #el_list := get all el with the given QuantitativeSchemaNode type
         el_list = self.el_by_qsn(quantitative_schema_node)
@@ -215,10 +237,11 @@ class Start(opencog.cogserver.Request):
         border_values = self.quantile_borders(svd)
         #create EvaluationLink with p = [(element.value-lbound)*ubound_strength
         # + (ubound-element.value)*lbound_strength]/(ubound-lbound)
+        logging.info("Searching for related ExecutionLinks")
         for el in el_list:
             value_nn = self.nn_from_el(el)
             cn = self.cn_from_el(el)
-            value = float(value_nn)
+            value = float(value_nn.name)
             p = None
             confidence = len(svd) / (len(svd) + self.PERSONALITY)
             q_size = len(border_values) - 1
@@ -240,6 +263,8 @@ class Start(opencog.cogserver.Request):
         Loads the REST API into a separate thread and invokes it,so that it will continue serving requests in the
         background after the Request that loads it has returned control to the CogServer
         """
+        logging.root.setLevel(logging.INFO)
+        logging.info("In run- Starting thread")
         self.atomspace = atomspace
         print 'Greetings'
         thread = Thread(target=self.listener)
@@ -251,26 +276,34 @@ class Start(opencog.cogserver.Request):
         A listener hooked to the atomspace for atom related events (here we listen for new ExecutionLink added events and validate
         that its related with a QuantitativeSchemaNode and update truth values of concerned Quantitative atoms)
         """
-        print 'In module quantitative_predicate'
+        #print 'In module quantitative_predicate'
+        logging.info("In listener- Listening for atom added")
         context = zmq.Context(1)
         subscriber = context.socket(zmq.SUB)
         subscriber.connect('tcp://' + self.ZMQ_IP_ADDRESS + ':' + self.ZMQ_PORT)
         subscriber.setsockopt(zmq.SUBSCRIBE, 'add')
         #subscriber.setsockopt(zmq.SUBSCRIBE, 'remove')
+        count = 0
         while True:
             [address, contents] = subscriber.recv_multipart()
             print '[%s]%s' % (address, contents)
             print "INFO:In while loop( listening to atom added)"
             atom = json.loads(contents)['atom']
             if address == 'add' and atom['type'] == 'ExecutionLink':
+                logging.info("\tDetected and ExecutionLink added")
+                count += 1
+         #       print "INFO:continuos insertion reached " + str(count)
+                logging.info("\t Detected "+str(count)+" ExecutionLink insertions")
                 self.execution_link = self.atomspace[Handle(int(atom['handle']))]
                 if self.contains_qsn(self.execution_link):
+                    logging.info("\tDetected ExecutionLink is related with QuantitativePredicate")
                     qsn = self.qsn_from_el(self.execution_link)
                     #update SchemaValueRecordLink
                     self.update_svrl(qsn)
                     #check fo QuantitativePredicateNode with same name as QuantitativeSchemaNode
                     qpn = self.qpn_of_qsn(qsn)
                     if qpn is None:
+                        logging.info("\tCreating a new QuantitativePredicateNode")
                         qpn = self.atomspace.add_node(t=types.QuantitativeSchemaNode, atom_name=qsn.name,
                                                       tv=TruthValue(0.0, 0.0), prefixed=False)
                         #create a QuantitativeSchemaLink
@@ -279,7 +312,12 @@ class Start(opencog.cogserver.Request):
                     svd = self.get_svd(self.svrl_by_qsn(qsn))
                      #if svd is  full
                     if len(svd) >= self.SVDL_SIZE:
+                        logging.info("\tUpdate truth value")
                         self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
-                    subscriber.close()
-                    context.term()
+        logging.info("\tClosing ZMQ subscriber")
+        subscriber.close()
+        context.term()
+        logging.info("\tThread has been terminated")
+
+
 
