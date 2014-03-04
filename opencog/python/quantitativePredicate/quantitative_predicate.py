@@ -268,7 +268,7 @@ class Start(opencog.cogserver.Request):
                         p = (((value - border_values[i - 1]) * i / q_size) + (
                             (border_values[i] - value) * (i - 1) / q_size)) / (border_values[i] - border_values[i - 1])
                         #logging.debug("setting p=" + str(p))
-                    break
+                        break
                 else:
                     if i == len(border_values) - 1:
                         p = 1
@@ -330,6 +330,10 @@ class Start(opencog.cogserver.Request):
                     self.atomspace.add_link(t=types.QuantitativePredicateLink, outgoing=[qpn, qsn],
                                             tv=TruthValue(0.0, 0.0))
                     svd = self.get_svd(self.svrl_by_qsn(qsn))
+<<<<<<< HEAD
+=======
+
+>>>>>>> fixed amples of bugs
                     if len(svd) > self.SVDL_SIZE:
                         logging.info("\tExecuting update truth value function")
                         self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
