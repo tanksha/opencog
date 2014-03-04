@@ -5,6 +5,8 @@ from threading import Thread
 import json
 import math
 import logging
+import pdb
+
 
 class Start(opencog.cogserver.Request):
     summary = 'Start the quantitativePredicate Module'
@@ -47,94 +49,99 @@ class Start(opencog.cogserver.Request):
         """
         Returns the NumberNode in the ExecutionLink provided
         """
-<<<<<<< HEAD
-        el_elements = self.atomspace.get_outgoing(handle=el.h)
-=======
         logging.info("In nn_from_el-searching NumberNode in ExecutionLink")
         el_elements = self.atomspace.get_outgoing(el.h)
->>>>>>> added logger
         for e in el_elements:
             if e.type == types.NumberNode:
                 return e
         return None
 
-    def update_svrl(self, quantitative_scheme_node):
+    def update_svrl(self, quantitative_schema_node):
         """
          Updates the SchemaValueRecordLink with the given QuantitativeSchemaNode type
         """
         #check if there is an svrl with the above qsn
         logging.info("In update_svrl- updating content of the SchemaValueRecordLink of the QuantitativeSchemaNode")
-        svrl = self.svrl_by_qsn(quantitative_scheme_node)
+        svrl = self.svrl_by_qsn(quantitative_schema_node)
         #if exists
         if not (svrl is None):
-        # if its not full
             svll = self.atomspace.get_outgoing(svrl.h)[1]
             svll_elements = self.atomspace.get_outgoing(svll.h)
-            if len(svll_elements) < self.SVDL_SIZE:
-                logging.info("Adding new NumberNode")
-            # get ref to elements,remove it, add the new on elements set,create a new svrl
+            print "[DEBUG]:No of values in current SchemaValueRecordLink is %s" % str(len(svll_elements) / 2)
+            # if its not full
+            if len(svll_elements) / 2 < self.SVDL_SIZE:
+                logging.info("\tAdding new value NumberNode")
+                # get ref to elements,remove it, add the new on elements set,create a new svrl
                 self.atomspace.remove(atom=svll, recursive=False)
                 self.atomspace.remove(atom=svrl, recursive=False)
-                value_nn_node = self.atomspace.add_node(t=types.NumberNode,
-                                                        atom_name=self.nn_from_el(self.execution_link).name,
-                                                        tv=TruthValue(0.0, 0.0),
-                                                        prefixed=False)
+                value_nn_node = self.nn_from_el(self.execution_link)
+                logging.info("\tAdding new count NumberNode")
                 count_nn_node = self.atomspace.add_node(t=types.NumberNode, atom_name="1", tv=TruthValue(0.0, 0.0),
                                                         prefixed=False)
                 svll_elements.append(value_nn_node)
                 svll_elements.append(count_nn_node)
                 svll = self.atomspace.add_link(t=types.SchemaValueListLink, outgoing=svll_elements,
                                                tv=TruthValue(0.0, 0.0))
-                svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_scheme_node, svll],
+                svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_schema_node, svll],
                                                tv=TruthValue(0.0, 0.0))
+
             else:
-                logging.info("Updating truth value")
+                logging.info("\tUpdating count and value NubmerNode")
                 v = float(self.nn_from_el(self.execution_link).name)
-                n_i = 1
-                v_i = 0
-                closest_index = 0
-                diff = 0
+                n_i = None
+                v_i = None
+                closest_index = None
+                diff = None
                 for i in range(0, len(svll_elements), 2):
                     v_i_tmp = float(svll_elements[i].name)
-                    if i == 1:
+                    diff_tmp = math.fabs(v_i_tmp - v)
+                    n_i_tmp = int(svll_elements[i + 1].name)
+                    if i == 0:
                         closest_index = i
                         diff = math.fabs(v_i_tmp - v)
-                        n_i = int(svll_elements[i + 1].name)
+                        n_i = n_i_tmp
                         v_i = v_i_tmp
                     else:
-                        if math.fabs(v_i_tmp - v) < diff:
-                            diff = math.fabs(v_i_tmp - v)
+                        if diff_tmp < diff:
+                            diff = diff_tmp
                             closest_index = i
-                            n_i = int(svll_elements[i + 1].name)
+                            n_i = n_i_tmp
                             v_i = v_i_tmp
-                        else:
-                            continue
                             # update the count and the value based on v_i_new = [v_i * n_i / (n_i +1)] + v / (n_i +1)
                             #  and n_i_new=n_i +1
-                v_i_new = (v_i * n_i / (n_i + 1)) + v / (n_i + 1)
+                v_i_new = (v_i * n_i / (n_i + 1)) + (v / (n_i + 1))
                 n_i += 1
                 value_nn_new = self.atomspace.add_node(t=types.NumberNode, atom_name=str(v_i_new),
                                                        tv=TruthValue(0.0, 0.0), prefixed=False)
                 count_nn_new = self.atomspace.add_node(t=types.NumberNode, atom_name=str(n_i),
                                                        tv=TruthValue(0.0, 0.0), prefixed=False)
+                #remove and recreate links and atoms
                 self.atomspace.remove(atom=svll_elements[closest_index], recursive=False)
                 self.atomspace.remove(atom=svll_elements[closest_index + 1], recursive=False)
+                self.atomspace.remove(atom=svll, recursive=False)
+                self.atomspace.remove(atom=svrl, recursive=False)
+                del svll_elements[closest_index]
+                #since element previously at i+1 becomes at i after single del operation
+                del svll_elements[closest_index]
+
                 svll_elements.insert(closest_index, value_nn_new)
                 svll_elements.insert(closest_index + 1, count_nn_new)
+
                 svll = self.atomspace.add_link(t=types.SchemaValueListLink, outgoing=svll_elements,
                                                tv=TruthValue(0.0, 0.0))
-                svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_scheme_node, svll],
+                svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_schema_node, svll],
                                                tv=TruthValue(0.0, 0.0))
         else:
-            logging.info("Creating a new SchemaValueRecordLink")
-        #create a new svrl with the new value
-            value_nn_new = self.atomspace.add_node(t=types.NumberNode,
-                                                   atom_name=self.nn_from_el(self.execution_link).name,
-                                                   tv=TruthValue(0.0, 0.0), prefixed=False)
+            logging.info("\tCreating a new SchemaValueListLink and SchemaValueRecordLink")
+            #create a new svrl with the new value
+            value_nn_new = self.nn_from_el(self.execution_link)
             count_nn_new = self.atomspace.add_node(t=types.NumberNode, atom_name="1",
                                                    tv=TruthValue(0.0, 0.0), prefixed=False)
+            svll = self.atomspace.add_link(t=types.SchemaValueListLink,
+                                           outgoing=[value_nn_new, count_nn_new],
+                                           tv=TruthValue(0.0, 0.0))
             svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink,
-                                           outgoing=[quantitative_scheme_node, value_nn_new, count_nn_new],
+                                           outgoing=[quantitative_schema_node, svll],
                                            tv=TruthValue(0.0, 0.0))
 
     def qsn_from_el(self, el):
@@ -168,12 +175,8 @@ class Start(opencog.cogserver.Request):
         """
         Returns the ConceptNode in the ExecutionLink provided
         """
-<<<<<<< HEAD
-        el_elements = self.atomspace.get_outgoing(handle=el.h)
-=======
         logging.info("In cn_from_el- searching for ConceptNode from ExecutionLink")
         el_elements = self.atomspace.get_outgoing(el.h)
->>>>>>> added logger
         for e in el_elements:
             if e.type == types.ConceptNode:
                 return e
@@ -185,7 +188,10 @@ class Start(opencog.cogserver.Request):
         """
         logging.info("In get_svd - returning SchemaValueDistribution for a SchemaValueRecordLink")
         svd = []
-        svll = self.atomspace.get_outgoing(svrl.h)[1]
+        svrl_outgoing = self.atomspace.get_outgoing(svrl.h)
+        logging.debug("\t SVRL_OUTGOING=")
+        logging.debug(svrl_outgoing)
+        svll = svrl_outgoing[1]
         svll_elements = self.atomspace.get_outgoing(svll.h)
         for i in range(0, len(svll_elements), 2):
             multiplicity = int(svll_elements[i + 1].name)
@@ -202,13 +208,21 @@ class Start(opencog.cogserver.Request):
         """
         logging.info("In quantile_borders- Calculating the quantile borders of a SchemaValueDistribution")
         # remainder is left since operands are integers
+        print "[DEBUG]:SVD"
+        print svd
         qsize = len(svd) / self.QUANTILE
+        print "[DEBUG]:Q_SIZE"
+        print qsize
         quantile_border = []
         for i in range(0, len(svd), qsize):
-            quantile_border.append(svd[i])
-            #if svd is even, add the last one
-        if len(svd) % qsize == 0:
-            quantile_border.append(svd[len(svd) - 1])
+            if i + qsize >= len(svd):
+                quantile_border.append(svd[len(svd) - 1])
+                break
+            else:
+                quantile_border.append(svd[i])
+                #if svd is even, add the last one        ])
+        print "[DEBUG]:Quantiles"
+        print quantile_border
         return quantile_border
 
     def qpn_of_qsn(self, quantitative_schema_node):
@@ -243,27 +257,32 @@ class Start(opencog.cogserver.Request):
             cn = self.cn_from_el(el)
             value = float(value_nn.name)
             p = None
-            confidence = len(svd) / (len(svd) + self.PERSONALITY)
+            confidence = float(len(svd)) / (len(svd) + self.PERSONALITY)
             q_size = len(border_values) - 1
             for i in range(0, len(border_values)):
                 if value <= border_values[i]:
                     if i == 0:
                         p = 0
+                        break
                     else:
-                        p = ((value - border_values[i - 1]) * i / q_size) + (
-                            (border_values[i] - value) * (i - 1) / q_size)
+                        p = (((value - border_values[i - 1]) * i / q_size) + (
+                            (border_values[i] - value) * (i - 1) / q_size)) / (border_values[i] - border_values[i - 1])
+                        #logging.debug("setting p=" + str(p))
                     break
                 else:
                     if i == len(border_values) - 1:
                         p = 1
                         break
-        self.atomspace.add_link(t=types.EvaluationLink, [qpn, cn], tv=TruthValue(p, confidence))
+            logging.debug("Evaluating  for %s with TV:(%s,%s)" % (cn.name, str(p), str(confidence)))
+            self.atomspace.add_link(t=types.EvaluationLink, outgoing=[qpn, cn], tv=TruthValue(p, confidence))
+
     def run(self, args, atomspace):
         """
         Loads the REST API into a separate thread and invokes it,so that it will continue serving requests in the
         background after the Request that loads it has returned control to the CogServer
         """
-        logging.root.setLevel(logging.INFO)
+        logging.root.setLevel(logging.DEBUG)
+        #logging.basicConfig(level=logging.DEBUG)
         logging.info("In run- Starting thread")
         self.atomspace = atomspace
         print 'Greetings'
@@ -285,15 +304,16 @@ class Start(opencog.cogserver.Request):
         #subscriber.setsockopt(zmq.SUBSCRIBE, 'remove')
         count = 0
         while True:
+            #pdb.set_trace()
+            logging.info("\tListening indefinitely in a while loop")
             [address, contents] = subscriber.recv_multipart()
-            print '[%s]%s' % (address, contents)
-            print "INFO:In while loop( listening to atom added)"
             atom = json.loads(contents)['atom']
             if address == 'add' and atom['type'] == 'ExecutionLink':
+                #print '[%s]%s' % (address, contents)
                 logging.info("\tDetected and ExecutionLink added")
                 count += 1
-         #       print "INFO:continuos insertion reached " + str(count)
-                logging.info("\t Detected "+str(count)+" ExecutionLink insertions")
+                logging.info("continuos insertion reached " + str(count))
+                logging.info("\t Detected " + str(count) + " ExecutionLink insertions")
                 self.execution_link = self.atomspace[Handle(int(atom['handle']))]
                 if self.contains_qsn(self.execution_link):
                     logging.info("\tDetected ExecutionLink is related with QuantitativePredicate")
@@ -304,15 +324,14 @@ class Start(opencog.cogserver.Request):
                     qpn = self.qpn_of_qsn(qsn)
                     if qpn is None:
                         logging.info("\tCreating a new QuantitativePredicateNode")
-                        qpn = self.atomspace.add_node(t=types.QuantitativeSchemaNode, atom_name=qsn.name,
+                        qpn = self.atomspace.add_node(t=types.QuantitativePredicateNode, atom_name=qsn.name,
                                                       tv=TruthValue(0.0, 0.0), prefixed=False)
                         #create a QuantitativeSchemaLink
                     self.atomspace.add_link(t=types.QuantitativePredicateLink, outgoing=[qpn, qsn],
                                             tv=TruthValue(0.0, 0.0))
                     svd = self.get_svd(self.svrl_by_qsn(qsn))
-                     #if svd is  full
-                    if len(svd) >= self.SVDL_SIZE:
-                        logging.info("\tUpdate truth value")
+                    if len(svd) > self.SVDL_SIZE:
+                        logging.info("\tExecuting update truth value function")
                         self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
         logging.info("\tClosing ZMQ subscriber")
         subscriber.close()
