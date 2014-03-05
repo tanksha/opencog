@@ -330,10 +330,6 @@ class Start(opencog.cogserver.Request):
                     self.atomspace.add_link(t=types.QuantitativePredicateLink, outgoing=[qpn, qsn],
                                             tv=TruthValue(0.0, 0.0))
                     svd = self.get_svd(self.svrl_by_qsn(qsn))
-<<<<<<< HEAD
-=======
-
->>>>>>> fixed amples of bugs
                     if len(svd) > self.SVDL_SIZE:
                         logging.info("\tExecuting update truth value function")
                         self.update_tv(quantitative_schema_node=qsn, qpn=qpn)
