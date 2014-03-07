@@ -78,6 +78,10 @@ class Start(opencog.cogserver.Request):
                 logging.info("\tAdding new count NumberNode")
                 count_nn_node = self.atomspace.add_node(t=types.NumberNode, atom_name="1", tv=TruthValue(0.0, 0.0),
                                                         prefixed=False)
+                # get ref to elements,remove it, add the new on elements set,create a new svrl
+                #order of deletion of svrl and svll matters here
+                self.atomspace.remove(atom=svrl, recursive=False)
+                self.atomspace.remove(atom=svll, recursive=False)
                 svll_elements.append(value_nn_node)
                 svll_elements.append(count_nn_node)
                 svll = self.atomspace.add_link(t=types.SchemaValueListLink, outgoing=svll_elements,
@@ -116,17 +120,19 @@ class Start(opencog.cogserver.Request):
                 count_nn_new = self.atomspace.add_node(t=types.NumberNode, atom_name=str(n_i),
                                                        tv=TruthValue(0.0, 0.0), prefixed=False)
                 #remove and recreate links and atoms
-                self.atomspace.remove(atom=svll_elements[closest_index], recursive=False)
-                self.atomspace.remove(atom=svll_elements[closest_index + 1], recursive=False)
-                self.atomspace.remove(atom=svll, recursive=False)
+                #order of deletion of  matters here
                 self.atomspace.remove(atom=svrl, recursive=False)
+                self.atomspace.remove(atom=svll, recursive=False)
+                self.atomspace.remove(atom=svll_elements[closest_index], recursive=False)
+                #self.atomspace.remove(atom=svll_elements[closest_index + 1], recursive=False)
                 del svll_elements[closest_index]
                 #since element previously at i+1 becomes at i after single del operation
                 del svll_elements[closest_index]
 
                 svll_elements.insert(closest_index, value_nn_new)
                 svll_elements.insert(closest_index + 1, count_nn_new)
-
+                #print("SVLL:")
+                #print svll_elements
                 svll = self.atomspace.add_link(t=types.SchemaValueListLink, outgoing=svll_elements,
                                                tv=TruthValue(0.0, 0.0))
                 svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink, outgoing=[quantitative_schema_node, svll],
