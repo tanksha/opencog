@@ -149,6 +149,8 @@ class Start(opencog.cogserver.Request):
             svrl = self.atomspace.add_link(t=types.SchemaValueRecordLink,
                                            outgoing=[quantitative_schema_node, svll],
                                            tv=TruthValue(0.0, 0.0))
+        print "[DEBUG]:svrl outgoing"
+        print svrl
 
     def qsn_from_el(self, el):
         """
@@ -206,7 +208,7 @@ class Start(opencog.cogserver.Request):
         svd.sort()
         return svd
 
-    def quantile_borders(self, svd):
+    def quantile_borders(self, svd,q_size):
         """
         Returns the the upper and lower bound set of a quantile
         eg. if svd =[10,20,30,40,50,60,70,80,90,100] and we need quartile,it will return
@@ -214,9 +216,7 @@ class Start(opencog.cogserver.Request):
         """
         logging.info("In quantile_borders- Calculating the quantile borders of a SchemaValueDistribution")
         # remainder is left since operands are integers
-        print "[DEBUG]:SVD"
-        print svd
-        qsize = len(svd) / self.QUANTILE
+        qsize = len(svd) / q_size
         print "[DEBUG]:Q_SIZE"
         print qsize
         quantile_border = []
@@ -226,9 +226,6 @@ class Start(opencog.cogserver.Request):
                 break
             else:
                 quantile_border.append(svd[i])
-                #if svd is even, add the last one        ])
-        print "[DEBUG]:Quantiles"
-        print quantile_border
         return quantile_border
 
     def qpn_of_qsn(self, quantitative_schema_node):
@@ -254,8 +251,8 @@ class Start(opencog.cogserver.Request):
         svrl = self.svrl_by_qsn(quantitative_schema_node)
         #svd := quantize(svrl)
         svd = self.get_svd(svrl)
-        border_values = self.quantile_borders(svd)
-        #create EvaluationLink with p = [(element.value-lbound)*ubound_strength
+        border_values = self.quantile_borders(svd,self.QUANTILE)
+        #create EvaluationLink with probability p = [(element.value-lbound)*ubound_strength
         # + (ubound-element.value)*lbound_strength]/(ubound-lbound)
         logging.info("Searching for related ExecutionLinks")
         for el in el_list:
@@ -287,8 +284,7 @@ class Start(opencog.cogserver.Request):
         Loads the REST API into a separate thread and invokes it,so that it will continue serving requests in the
         background after the Request that loads it has returned control to the CogServer
         """
-        logging.root.setLevel(logging.DEBUG)
-        #logging.basicConfig(level=logging.DEBUG)
+        logging.root.setLevel(logging.ERROR)
         logging.info("In run- Starting thread")
         self.atomspace = atomspace
         print 'Greetings'
@@ -307,12 +303,16 @@ class Start(opencog.cogserver.Request):
         subscriber = context.socket(zmq.SUB)
         subscriber.connect('tcp://' + self.ZMQ_IP_ADDRESS + ':' + self.ZMQ_PORT)
         subscriber.setsockopt(zmq.SUBSCRIBE, 'add')
-        #subscriber.setsockopt(zmq.SUBSCRIBE, 'remove')
         count = 0
         while True:
-            #pdb.set_trace()
             logging.info("\tListening indefinitely in a while loop")
-            [address, contents] = subscriber.recv_multipart()
+            test_list = subscriber.recv_multipart()
+            if len(test_list) != 2:
+                pdb.set_trace()
+                logging.debug("LENGTH EXCEEDED 2.CONTETNT IS")
+                for e in test_list:
+                    print e
+            [address, contents] =[test_list[0],test_list[1]]
             atom = json.loads(contents)['atom']
             if address == 'add' and atom['type'] == 'ExecutionLink':
                 #print '[%s]%s' % (address, contents)
