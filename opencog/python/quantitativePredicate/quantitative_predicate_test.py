@@ -15,9 +15,9 @@ class quantitativePredicateTest(unittest.TestCase):
         test_2 = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
         test_3 = [10, 20, 30]
         test_instance = quantitative_predicate.Start()
-        self.assertEqual(test_instance.quantile_borders(test_1, 4), [10, 60, 110, 160, 200])
-        self.assertEqual(test_instance.quantile_borders(test_2, 4), [10, 30, 50, 70, 100])
-        self.assertEqual(test_instance.quantile_borders(test_2, 10), [10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+        self.assertEqual(test_instance.quantile_borders(test_1, 4), [10, 55, 105, 155, 200])
+        self.assertEqual(test_instance.quantile_borders(test_2, 4), [10, 25, 45, 65, 100])
+        self.assertEqual(test_instance.quantile_borders(test_2, 10), [10, 15, 25, 35, 45, 55, 65, 75, 85, 100])
 
 
 if __name__ == "__main__":
