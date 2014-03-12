@@ -208,20 +208,21 @@ class Start(opencog.cogserver.Request):
         svd.sort()
         return svd
 
-    def quantile_borders(self, svd,q_size):
+    def quantile_borders(self, svd, q_size):
         """
-        Returns the the upper and lower bound set of a quantile
+        Returns the the upper and lower bound  set of a quantile
         eg. if svd =[10,20,30,40,50,60,70,80,90,100] and we need quartile,it will return
-        [10,30,60,90,100]
+        [10,30,50,70,100]
         """
         logging.info("In quantile_borders- Calculating the quantile borders of a SchemaValueDistribution")
         # remainder is left since operands are integers
         qsize = len(svd) / q_size
-        print "[DEBUG]:Q_SIZE"
-        print qsize
         quantile_border = []
+        remainder = len(svd) % q_size
         for i in range(0, len(svd), qsize):
-            if i + qsize >= len(svd):
+            if i + qsize >= len(svd) - 1:
+                if remainder == 0:
+                    quantile_border.append(svd[i])
                 quantile_border.append(svd[len(svd) - 1])
                 break
             else:
@@ -251,7 +252,7 @@ class Start(opencog.cogserver.Request):
         svrl = self.svrl_by_qsn(quantitative_schema_node)
         #svd := quantize(svrl)
         svd = self.get_svd(svrl)
-        border_values = self.quantile_borders(svd,self.QUANTILE)
+        border_values = self.quantile_borders(svd, self.QUANTILE)
         #create EvaluationLink with probability p = [(element.value-lbound)*ubound_strength
         # + (ubound-element.value)*lbound_strength]/(ubound-lbound)
         logging.info("Searching for related ExecutionLinks")
@@ -312,7 +313,7 @@ class Start(opencog.cogserver.Request):
                 logging.debug("LENGTH EXCEEDED 2.CONTETNT IS")
                 for e in test_list:
                     print e
-            [address, contents] =[test_list[0],test_list[1]]
+            [address, contents] = [test_list[0], test_list[1]]
             atom = json.loads(contents)['atom']
             if address == 'add' and atom['type'] == 'ExecutionLink':
                 #print '[%s]%s' % (address, contents)
