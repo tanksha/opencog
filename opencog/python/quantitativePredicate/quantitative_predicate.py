@@ -212,7 +212,7 @@ class Start(opencog.cogserver.Request):
         """
         Returns the the upper and lower bound  set of a quantile
         eg. if svd =[10,20,30,40,50,60,70,80,90,100] and we need quartile,it will return
-        [10,30,50,70,100]
+        [10,25,45,65,100]
         """
         logging.info("In quantile_borders- Calculating the quantile borders of a SchemaValueDistribution")
         # remainder is left since operands are integers
@@ -220,13 +220,16 @@ class Start(opencog.cogserver.Request):
         quantile_border = []
         remainder = len(svd) % q_size
         for i in range(0, len(svd), qsize):
-            if i + qsize >= len(svd) - 1:
-                if remainder == 0:
-                    quantile_border.append(svd[i])
-                quantile_border.append(svd[len(svd) - 1])
-                break
-            else:
+            if i == 0:
                 quantile_border.append(svd[i])
+            else:
+                if i + qsize >= len(svd) - 1:
+                    if remainder == 0:
+                        quantile_border.append((svd[i] + svd[i - 1]) / 2)
+                    quantile_border.append(svd[len(svd) - 1])
+                    break
+                else:
+                    quantile_border.append((svd[i] + svd[i - 1]) / 2)
         return quantile_border
 
     def qpn_of_qsn(self, quantitative_schema_node):
@@ -252,7 +255,11 @@ class Start(opencog.cogserver.Request):
         svrl = self.svrl_by_qsn(quantitative_schema_node)
         #svd := quantize(svrl)
         svd = self.get_svd(svrl)
+        logging.debug("SVD=")
+        logging.debug(svd)
         border_values = self.quantile_borders(svd, self.QUANTILE)
+        logging.debug("SVD_BOUNDARY=")
+        logging.debug(border_values)
         #create EvaluationLink with probability p = [(element.value-lbound)*ubound_strength
         # + (ubound-element.value)*lbound_strength]/(ubound-lbound)
         logging.info("Searching for related ExecutionLinks")
@@ -285,7 +292,7 @@ class Start(opencog.cogserver.Request):
         Loads the REST API into a separate thread and invokes it,so that it will continue serving requests in the
         background after the Request that loads it has returned control to the CogServer
         """
-        logging.root.setLevel(logging.ERROR)
+        logging.root.setLevel(logging.DEBUG)
         logging.info("In run- Starting thread")
         self.atomspace = atomspace
         print 'Greetings'
