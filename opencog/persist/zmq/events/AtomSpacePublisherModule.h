@@ -1,3 +1,4 @@
+
 /*
  * opencog/persist/zmq/events/AtomSpacePublisherModule.h
  *
@@ -31,9 +32,9 @@
 #include <opencog/server/Module.h>
 #include <opencog/server/CogServer.h>
 
-#include <boost/property_tree/ptree.hpp>
-using boost::property_tree::ptree;
+#include <lib/json_spirit/json_spirit.h>
 
+using namespace json_spirit;
 #include "opencog/util/zhelpers.hpp"
 
 namespace opencog
@@ -42,13 +43,15 @@ namespace opencog
 class CogServer;
 
 /**
- * The AtomSpacePublisherModule class publishes AtomSpace change events across the network using ZeroMQ
- * to allow for external clients to receive updates from the AtomSpace via a publish/subscribe pattern.
+ * The AtomSpacePublisherModule class publishes AtomSpace change events across
+ * the network using ZeroMQ to allow for external clients to receive updates
+ * from the AtomSpace via a publish/subscribe pattern.
  *
  * API documentation is in: README.md
  *
- * Clients can subscribe to the events by subscribing to the ZeroMQ socket defined in the
- * ZMQ_EVENT_PORT parameter set in the OpenCog configuration file.
+ * Clients can subscribe to the events by subscribing to the ZeroMQ socket
+ * defined in the ZMQ_EVENT_PORT parameter set in the OpenCog configuration
+ * file.
  *
  * Supported events are:
  *
@@ -71,19 +74,50 @@ class AtomSpacePublisherModule : public Module
         boost::signals2::connection addAtomConnection;
         boost::signals2::connection TVChangedConnection;
         boost::signals2::connection AVChangedConnection;
+        boost::signals2::connection AddAFConnection;
+        boost::signals2::connection RemoveAFConnection;
+        void enableSignals();
+        void disableSignals();
 
         zmq::context_t * context;
         zmq::socket_t * publisher;
-
         void InitZeroMQ();
+        void proxy();
 
-        ptree atomToPtree(Handle h);
-        ptree tvToPtree(TruthValuePtr tv);
-        ptree avToPtree(AttentionValuePtr av);
-        std::string atomMessage(ptree ptAtom);
-        std::string avMessage(ptree ptAtom, ptree ptAVOld, ptree ptAVNew);
-        std::string tvMessage(ptree ptAtom, ptree ptTVOld, ptree ptTVNew);
-        std::string ptToJSON(ptree pt);
+        Object atomToJSON(Handle h);
+        Object tvToJSON(TruthValuePtr tv);
+        Object avToJSON(AttentionValuePtr av);
+        void sendMessage(std::string messageType, std::string payload);
+        std::string atomMessage(Object jsonAtom);
+        std::string avMessage(Object jsonAtom, Object jsonAVOld, Object jsonAVNew);
+        std::string tvMessage(Object jsonAtom, Object jsonTVOld, Object jsonTVNew);
+        std::string jsonToString(Object json);
+        void signalHandlerAdd(Handle h);
+        void signalHandlerRemove(AtomPtr atom);
+        void signalHandlerAVChanged(const Handle& h,
+                                    const AttentionValuePtr& av_old,
+                                    const AttentionValuePtr& av_new);
+        void signalHandlerTVChanged(const Handle& h,
+                                    const TruthValuePtr& tv_old,
+                                    const TruthValuePtr& tv_new);
+        void signalHandlerAddAF(const Handle& h,
+                                const AttentionValuePtr& av_old,
+                                const AttentionValuePtr& av_new);
+        void signalHandlerRemoveAF(const Handle& h,
+                                   const AttentionValuePtr& av_old,
+                                   const AttentionValuePtr& av_new);
+
+        DECLARE_CMD_REQUEST(AtomSpacePublisherModule, "publisher-enable-signals",
+           do_publisherEnableSignals,
+           "Enable AtomSpace signals for the AtomSpace Publisher",
+           "Usage: publisher-enable-signals",
+           false, false)
+
+        DECLARE_CMD_REQUEST(AtomSpacePublisherModule, "publisher-disable-signals",
+           do_publisherDisableSignals,
+           "Disable AtomSpace signals for the AtomSpace Publisher",
+           "Usage: publisher-disable-signals",
+           false, false)
 
     public:
         AtomSpacePublisherModule(CogServer&);
@@ -95,8 +129,18 @@ class AtomSpacePublisherModule : public Module
 
         void atomAddSignal(Handle h);
         void atomRemoveSignal(AtomPtr atom);
-        void AVChangedSignal(const Handle& h, const AttentionValuePtr& av_old, const AttentionValuePtr& av_new);
-        void TVChangedSignal(const Handle& h, const TruthValuePtr& tv_old, const TruthValuePtr& tv_new);
+        void AVChangedSignal(const Handle& h,
+                             const AttentionValuePtr& av_old,
+                             const AttentionValuePtr& av_new);
+        void TVChangedSignal(const Handle& h,
+                             const TruthValuePtr& tv_old,
+                             const TruthValuePtr& tv_new);
+        void addAFSignal(const Handle& h,
+                         const AttentionValuePtr& av_old,
+                         const AttentionValuePtr& av_new);
+        void removeAFSignal(const Handle& h,
+                         const AttentionValuePtr& av_old,
+                         const AttentionValuePtr& av_new);
 };
 
 }
