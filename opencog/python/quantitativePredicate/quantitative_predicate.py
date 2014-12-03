@@ -11,8 +11,8 @@ import pdb
 class Start(opencog.cogserver.Request):
     summary = 'Start the quantitativePredicate Module'
     description = "Usage: quantitativePredicate.Start Start the quantitativePredicate module. the purpose of this module" \
-                  " is to control the new quantitativePredicate Nodes .This module hooks up to  the atomspace " \
-                  "data is insertions signal  so that it will update the concerned quantitativePredicate node's" \
+                  " is listening to new quantitativePredicateNode insertion and change truth values of related atoms accordingly.This module hooks up to  the atomspace " \
+                  "atom insertion is the signal being listened to so that it will update the concerned quantitativePredicateNode's" \
                   " truth value,"
     SVDL_SIZE = 20
     QUANTILE = 10
