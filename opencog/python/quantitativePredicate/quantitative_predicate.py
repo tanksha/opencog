@@ -11,8 +11,8 @@ import pdb
 class Start(opencog.cogserver.Request):
     summary = 'Start the quantitativePredicate Module'
     description = "Usage: quantitativePredicate.Start Start the quantitativePredicate module. the purpose of this module" \
-                  " is listening to new quantitativePredicateNode insertion and change truth values of related atoms accordingly.This module hooks up to  the atomspace " \
-                  "atom insertion is the signal being listened to so that it will update the concerned quantitativePredicateNode's" \
+                  " is listening to new quantitativePredicateNode insertion and change truth values of related atoms accordingly.This module hooks to" \
+                  "atomspace signals.Atom insertion is the signal being listened so that this module updates the concerned quantitativePredicateNode's" \
                   " truth value,"
     SVDL_SIZE = 20
     QUANTILE = 10
@@ -23,7 +23,7 @@ class Start(opencog.cogserver.Request):
 
     def contains_qsn(self, execution_link):
         """
-         Checks whether the ExecutionLink is related with QuantitativeSchemaNode or not and returns the boolean result of the check
+         Checks whether the ExecutionLink is related with QuantitativeSchemaNode or not and returns the boolean result of the check operation.
         """
         logging.info("In contains_qsn-searching ExecutionLink by a given QuantitativeShemaNode")
         el_elements = self.atomspace.get_outgoing(execution_link.h)
@@ -165,7 +165,7 @@ class Start(opencog.cogserver.Request):
 
     def el_by_qsn(self, qsn):
         """
-        Returns an ExecutionLink with that contains a given QuantitativeSchemaNode
+        Returns an ExecutionLink that contains a given QuantitativeSchemaNode
         """
         logging.info("In el_by_qsn- Searching ExecutionLink by QuantitativeSchemaNode")
         el_list = []
@@ -302,7 +302,7 @@ class Start(opencog.cogserver.Request):
 
     def listener(self):
         """
-        A listener hooked to the atomspace for atom related events (here we listen for new ExecutionLink added events and validate
+        A listener hooked to the atomspace events (here we listen for new ExecutionLink added events and validate
         that its related with a QuantitativeSchemaNode and update truth values of concerned Quantitative atoms)
         """
         #print 'In module quantitative_predicate'
