@@ -22,6 +22,7 @@
 ; -- sentence-get-parses    Get parses of a sentence.
 ; -- sentence-get-utterance-type  Get the speech act of a sentence.
 ; -- sent-list-get-parses   Get parses of a list of sentences.
+; -- sent-get-words-in-order  Get all words occuring in a sentence in order.
 ; -- parse-get-words        Get all words occuring in a parse.
 ; -- parse-get-words-in-order  Get all words occuring in a parse in order.
 ; -- parse-get-relations    Get all RelEx relations in a parse.
@@ -205,6 +206,16 @@
 
 	; Return act-type
 	act-type
+)
+
+; ---------------------------------------------------------------------
+(define-public (sent-get-words-in-order sent-node)
+"
+  sent-get-words-in-order - Given a sentence, return a list of all words in order
+
+  Given a sentence, return all word instances in order
+"
+	(map parse-get-words-in-order (sentence-get-parses sent-node))
 )
 
 ; ---------------------------------------------------------------------
@@ -722,8 +733,8 @@
          SentenceNode
 "
 	; Purge stuff associated with a single LgLinkInstanceNode
-	(define (purge-link-instance li)
-		(cog-purge-recursive li)
+	(define (extract-link-instance li)
+		(cog-extract-recursive li)
 	)
 
 	; Purge stuff associated with a single word-instance
@@ -736,28 +747,28 @@
 	;               WordInstanceNode
 	;               WordInstanceNode
 	;
-	; and so we have to track those down and purge them.
+	; and so we have to track those down and extract them.
 	; They also appear in WordSequenceLinks:
 	;     WordSequenceLink
 	;         WordInstanceNode
 	;         NumberNode
 	; and so we need to get rid of the NumberNodes too.
 
-	(define (purge-word-instance wi)
+	(define (extract-word-instance wi)
 		(for-each
 			(lambda (x)
-				; purge the NumberNode
+				; extract the NumberNode
 				(if (eq? 'WordSequenceLink (cog-type x))
-					(cog-purge (cadr (cog-outgoing-set x)))
+					(cog-extract (cadr (cog-outgoing-set x)))
 				)
 				(if (eq? 'ListLink (cog-type x))
-					(purge-link-instance
+					(extract-link-instance
 						(cog-chase-link 'EvaluationLink 'LgLinkInstanceNode x))
 				)
 			)
 			(cog-incoming-set wi)
 		)
-		(cog-purge-recursive wi)
+		(cog-extract-recursive wi)
 	)
 
 	; Purge, recusively, all of the word-instances in the parse.
@@ -767,19 +778,19 @@
 	;           WordInstanceNode
 	;           ParseNode
 	;
-	(define (purge-parse parse)
+	(define (extract-parse parse)
 		(for-each
 			(lambda (x)
 				(if (eq? 'WordInstanceLink (cog-type x))
-					(purge-word-instance (car (cog-outgoing-set x)))
+					(extract-word-instance (car (cog-outgoing-set x)))
 				)
 			)
 			(cog-incoming-set parse)
 		)
-		(cog-purge-recursive parse)
+		(cog-extract-recursive parse)
 	)
 
-	; For each parse of the sentence, purge the parse
+	; For each parse of the sentence, extract the parse
 	; This is expecting a structure
 	;     ParseLink
 	;         ParseNode     car of the outgoing set
@@ -788,7 +799,7 @@
 		(lambda (x)
 			(if (eq? 'ParseLink (cog-type x))
 				; The car will be a ParseNode
-				(purge-parse (car (cog-outgoing-set x)))
+				(extract-parse (car (cog-outgoing-set x)))
 			)
 		)
 		(cog-incoming-set sent)
@@ -796,7 +807,7 @@
 
 	; This delete will fail if there are still incoming links ...
 	; this is intentional. Its up to the caller to cleanup.
-	(cog-purge sent)
+	(cog-extract sent)
 )
 
 ; ---------------------------------------------------------------------
@@ -820,12 +831,12 @@
 "
 	(let ((n 0))
 	; (define (delit atom) (set! n (+ n 1)) #f)
-	; (define (delit atom) (cog-purge-recursive atom) #f)
-	(define (delit atom) (cog-purge-recursive atom) (set! n (+ n 1)) #f)
+	; (define (delit atom) (cog-extract-recursive atom) #f)
+	(define (delit atom) (cog-extract-recursive atom) (set! n (+ n 1)) #f)
 
-	; (define (delone atom) (cog-purge atom) #f)
-	; (define (delone atom) (cog-purge atom) (set! n (+ n 1)) #f)
-	(define (delone atom) (purge-hypergraph atom) (set! n (+ n 1)) #f)
+	; (define (delone atom) (cog-extract atom) #f)
+	; (define (delone atom) (cog-extract atom) (set! n (+ n 1)) #f)
+	(define (delone atom) (extract-hypergraph atom) (set! n (+ n 1)) #f)
 
 	; Can't delete InheritanceLink, its used to mark wsd completed...
 	; (cog-map-type delone 'InheritanceLink)
@@ -868,6 +879,43 @@
 
 (system (string-join (list "echo deleted: " (number->string n) )))
 	)
+)
+
+; ---------------------------------------------------------------------
+(define-public (use-relex-server HOSTNAME PORTNUM)
+"
+  use-relex-server HOSTNAME PORTNUM
+
+  Use the RelEx server found at HOSTNAME:PORTNUM for parsing.
+  Any sentences to be parsed will be sent to this server.
+
+  HOSTNAME can be either a TCPIPv4 hostname or IP address, for example,
+  \"foo.bar.org\" or \"localhost\" or \"127.0.0.1\".
+
+  PORTNUM must be a numeric port number in the range 1-65535
+
+  The IP address is returned.  If the HOSTNAME is invalid, the
+  currently-set server is not changed, and an exception is thrown.
+"
+	(define hosty (gethost HOSTNAME))
+	(set! relex-server-host
+		(inet-ntop (hostent:addrtype hosty)
+			(car (hostent:addr-list hosty))))
+
+	; Basic sanity check.
+	(if (not (exact-integer? PORTNUM)) (throw 'bad-portnum))
+	(set! relex-server-port PORTNUM)
+	relex-server-host
+)
+
+(define-public (set-relex-server-host)
+"
+  Sets the relex-server address. To be used only in a docker setup.
+"
+	(catch
+		#t
+		(lambda () (use-relex-server "relex" 4444))
+		(lambda (key . rest) relex-server-host))
 )
 
 ; =============================================================

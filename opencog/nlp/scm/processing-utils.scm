@@ -27,8 +27,8 @@
 	; Arghh Some bit of asshole code is wrapping the anchor in
 	; a SetLink. Basically, someone somewhere is running a
 	; badly-scoped search pattern.  However, we need this to work,
-	; so break out using cog-purge-recursive not cog-purge.
-	(for-each (lambda (x) (cog-purge-recursive x))
+	; so break out using cog-extract-recursive not cog-extract.
+	(for-each (lambda (x) (cog-extract-recursive x))
 		(cog-incoming-set anchor)
 	)
 )
@@ -188,7 +188,7 @@
 )
 
 ; -----------------------------------------------------------------------
-(define (parse-all proc path)
+(define-public (parse-all proc path)
 "
   Parse of all sentences in each of the files in 'path' using 'proc'. Assuming
   each line of the files represents a sentence.
@@ -205,7 +205,8 @@
 "
     (let* ((cmd (string-append "find " path " -type f -exec cat {} \\;"))
            (port (open-input-pipe cmd))
-           (line (get-line port)))
+           (line (get-line port))
+           (cnt 0))
 
         (while (not (eof-object? line))
             ; Ignore empty lines
@@ -213,10 +214,13 @@
                 (set! line (get-line port))
                 (begin (catch #t
                     (lambda ()
+                        (set! cnt (+ cnt 1))
+                        (display (string-append (number->string cnt) ") Parsing: " line "\n"))
                         (proc line))
                     (lambda (key . parameters)
-                        (string-append "*** Unable to parse: " line)
+                        (display (string-append "*** Unable to parse: " line))
                         (newline)))
                     (set! line (get-line port)))))
+        (display (string-append "Finished parsing " (number->string cnt) " sentences\n"))
         (close-pipe port))
 )

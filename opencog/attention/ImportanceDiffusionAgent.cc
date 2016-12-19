@@ -31,7 +31,6 @@
 #include <opencog/atoms/base/Link.h>
 #include <opencog/attention/atom_types.h>
 
-#define DEPRECATED_ATOMSPACE_CALLS
 #include <opencog/atomspace/AtomSpace.h>
 #include <opencog/cogserver/server/CogServer.h>
 
@@ -44,7 +43,7 @@ namespace opencog
 ImportanceDiffusionAgent::ImportanceDiffusionAgent(CogServer& cs) :
     Agent(cs)
 {
-    static const std::string defaultConfig[] = {
+    setParameters({
         //! Default value that normalised STI has to be above before
         //! being spread
         "ECAN_DIFFUSION_THRESHOLD","0.0",
@@ -52,37 +51,24 @@ ImportanceDiffusionAgent::ImportanceDiffusionAgent(CogServer& cs) :
         "ECAN_MAX_SPREAD_PERCENTAGE","1.0",
         "ECAN_ALL_LINKS_SPREAD","false",
         "",""
-    };
-    setParameters(defaultConfig);
+    });
     spreadDecider = NULL;
 
     //! @todo won't respond to the parameters being changed later
     //! (not a problem at present, but could get awkward with, for example,
     //! automatic parameter adaptation)
-    maxSpreadPercentage = (float) (config().get_double("ECAN_MAX_SPREAD_PERCENTAGE"));
+    maxSpreadPercentage = config().get_double("ECAN_MAX_SPREAD_PERCENTAGE");
 
     setSpreadDecider(STEP);
-    setDiffusionThreshold((float) (config().get_double("ECAN_DIFFUSION_THRESHOLD")));
+    setDiffusionThreshold(config().get_double("ECAN_DIFFUSION_THRESHOLD"));
 
     allLinksSpread = config().get_bool("ECAN_ALL_LINKS_SPREAD");
 
     // Provide a logger
-    log = NULL;
     setLogger(new opencog::Logger("ImportanceDiffusionAgent.log", Logger::FINE, true));
 }
 
-void ImportanceDiffusionAgent::setLogger(Logger* _log)
-{
-    if (log) delete log;
-    log = _log;
-}
-
-Logger* ImportanceDiffusionAgent::getLogger()
-{
-    return log;
-}
-
-void ImportanceDiffusionAgent::setSpreadDecider(int type, float shape)
+void ImportanceDiffusionAgent::setSpreadDecider(int type, double shape)
 {
     if (spreadDecider) {
         delete spreadDecider;
@@ -96,7 +82,7 @@ void ImportanceDiffusionAgent::setSpreadDecider(int type, float shape)
         spreadDecider = (SpreadDecider*) new StepDecider(_cogserver);
         break;
     }
-    
+
 }
 
 ImportanceDiffusionAgent::~ImportanceDiffusionAgent()
@@ -107,23 +93,22 @@ ImportanceDiffusionAgent::~ImportanceDiffusionAgent()
     }
 }
 
-void ImportanceDiffusionAgent::setMaxSpreadPercentage(float p)
+void ImportanceDiffusionAgent::setMaxSpreadPercentage(double p)
 { maxSpreadPercentage = p; }
 
-float ImportanceDiffusionAgent::getMaxSpreadPercentage() const
+double ImportanceDiffusionAgent::getMaxSpreadPercentage() const
 { return maxSpreadPercentage; }
 
-void ImportanceDiffusionAgent::setDiffusionThreshold(float p)
+void ImportanceDiffusionAgent::setDiffusionThreshold(double p)
 {
     diffusionThreshold = p;
 }
 
-float ImportanceDiffusionAgent::getDiffusionThreshold() const
+double ImportanceDiffusionAgent::getDiffusionThreshold() const
 { return diffusionThreshold; }
 
 void ImportanceDiffusionAgent::run()
 {
-    a = &_cogserver.getAtomSpace();
     spreadDecider->setFocusBoundary(diffusionThreshold);
 #ifdef DEBUG
     totalSTI = 0;
@@ -134,33 +119,34 @@ void ImportanceDiffusionAgent::run()
 #define toFloat getMean
 
 int ImportanceDiffusionAgent::makeDiffusionAtomsMap(std::map<Handle,int> &diffusionAtomsMap,
-        std::vector<Handle> links)
+        HandleSeq links)
 {
     int totalDiffusionAtoms = 0;
-    std::vector<Handle>::iterator hi;
+    HandleSeq::iterator hi;
 
 #ifdef DEBUG
-    log->fine("Finding atoms involved with STI diffusion and their matrix indices");
+    _log->fine("Finding atoms involved with STI diffusion and their matrix indices");
 #endif
     for (hi = links.begin(); hi != links.end(); ++hi) {
         // Get all atoms in outgoing set of links
-        std::vector<Handle> targets;
-        std::vector<Handle>::iterator targetItr;
+        HandleSeq targets;
+        HandleSeq::iterator targetItr;
         Handle linkHandle = *hi;
-        float val = a->get_TV(linkHandle)->toFloat();
-        if (val == 0.0f) {
+        double val = linkHandle->getTruthValue()->toFloat();
+        if (val == 0.0) {
             continue;
         }
 
         targets = linkHandle->getOutgoingSet();
 
         for (targetItr = targets.begin(); targetItr != targets.end();
-                ++targetItr) {
-            if (diffusionAtomsMap.find(*targetItr) == diffusionAtomsMap.end()) {
+                ++targetItr)
+        {
+            if (diffusionAtomsMap.find(*targetItr) == diffusionAtomsMap.end())
+            {
                 diffusionAtomsMap[*targetItr] = totalDiffusionAtoms;
 #ifdef DEBUG
-                log->fine("%s = %d",
-                        a->atom_as_string(*targetItr).c_str(),
+                _log->fine("%s = %d", (*targetItr)->toString().c_str(),
                         totalDiffusionAtoms);
 #endif
                 totalDiffusionAtoms++;
@@ -170,7 +156,6 @@ int ImportanceDiffusionAgent::makeDiffusionAtomsMap(std::map<Handle,int> &diffus
     // diffusionAtomsMap now contains all atoms involved in spread as keys and
     // their matrix indices as values.
     return totalDiffusionAtoms;
-    
 }
 
 void ImportanceDiffusionAgent::makeSTIVector(bvector* &stiVector,
@@ -178,9 +163,8 @@ void ImportanceDiffusionAgent::makeSTIVector(bvector* &stiVector,
     // go through diffusionAtomsMap and add each to the STI vector.
     // position in stiVector matches set (set is ordered and won't change
     // unless you add to it.
-    
     // alloc
-    stiVector = new bvector(totalDiffusionAtoms);    
+    stiVector = new bvector(totalDiffusionAtoms);
     // zero vector
     //gsl_vector_set_zero(stiVector);
 
@@ -189,16 +173,16 @@ void ImportanceDiffusionAgent::makeSTIVector(bvector* &stiVector,
         Handle dAtom = (*i).first;
 // For some reason I thought linearising -ve and +ve separately might
 // be a good idea, but this messes up the conservation of STI
-//      (*stiVector)((*i).second) = a->getNormalisedSTI(dAtom,false)+1.0f)/2.0f);
-        (*stiVector)((*i).second) = a->get_normalised_zero_to_one_STI(dAtom,false);
+//      (*stiVector)((*i).second) = _as->getNormalisedSTI(dAtom,false)+1.0)/2.0);
+        (*stiVector)((*i).second) = _as->get_normalised_zero_to_one_STI(dAtom,false);
 #ifdef DEBUG
-        totalSTI += a->get_STI(dAtom);
+        totalSTI += dAtom->getSTI();
 #endif
     }
-    
+
 #ifdef DEBUG
-    if (log->is_fine_enabled()) {
-        log->fine("Initial normalised STI values");
+    if (_log->is_fine_enabled()) {
+        _log->fine("Initial normalised STI values");
         printVector(stiVector);
     }
 #endif
@@ -206,23 +190,21 @@ void ImportanceDiffusionAgent::makeSTIVector(bvector* &stiVector,
 
 void ImportanceDiffusionAgent::makeConnectionMatrix(bmatrix* &connections_,
         int totalDiffusionAtoms, std::map<Handle,int> diffusionAtomsMap,
-        std::vector<Handle> links)
+        HandleSeq links)
 {
-    std::vector<Handle>::iterator hi;
+    HandleSeq::iterator hi;
     // set connectivity matrix size, size is dependent on the number of atoms
     // that are connected by a HebbianLink in some way.
 //    connections = gsl_matrix_alloc(totalDiffusionAtoms, totalDiffusionAtoms);
     connections_ = new bmatrix(totalDiffusionAtoms, totalDiffusionAtoms, totalDiffusionAtoms * totalDiffusionAtoms);
     // To avoid having to dereference pointers everywhere
     bmatrix& connections = *connections_;
-    
-    // obviously the use of sparse matrixes means this isn't necessary
-//    gsl_matrix_set_zero(connections);
 
-    for (hi=links.begin(); hi != links.end(); ++hi) {
+    for (hi=links.begin(); hi != links.end(); ++hi)
+    {
         // Get all atoms in outgoing set of link
-        std::vector<Handle> targets;
-        std::vector<Handle>::iterator targetItr;
+        HandleSeq targets;
+        HandleSeq::iterator targetItr;
 
         std::map<Handle,int>::iterator sourcePosItr;
         std::map<Handle,int>::iterator targetPosItr;
@@ -230,10 +212,10 @@ void ImportanceDiffusionAgent::makeConnectionMatrix(bmatrix* &connections_,
         int targetIndex;
         Type type;
 
-        float val = a->get_TV(*hi)->toFloat();
-        if (val == 0.0f) continue;
+        double val = (*hi)->getTruthValue()->toFloat();
+        if (val == 0.0) continue;
         //val *= diffuseTemperature;
-        type = a->get_type(*hi); 
+        type = (*hi)->getType();
 
         targets = (*hi)->getOutgoingSet();
         if (classserver().isA(type,ORDERED_LINK)) {
@@ -244,25 +226,25 @@ void ImportanceDiffusionAgent::makeConnectionMatrix(bmatrix* &connections_,
 #ifdef DEBUG
             if (sourcePosItr == diffusionAtomsMap.end()) {
                 // This case should never occur
-                log->warn("Can't find source in list of diffusionNodes. "
+                _log->warn("Can't find source in list of diffusionNodes. "
                         "Something odd has happened");
             }
 #endif
             sourceHandle = (*sourcePosItr).first;
             // If source atom isn't within diffusionThreshold, then skip
-            if (!spreadDecider->spreadDecision(a->get_STI(sourceHandle))) {
+            if (!spreadDecider->spreadDecision(sourceHandle->getSTI())) {
                 continue;
             }
             sourceIndex = (*sourcePosItr).second;
 #ifdef DEBUG
-            log->fine("Ordered link with source index %d.", sourceIndex);
+            _log->fine("Ordered link with source index %d.", sourceIndex);
 #endif
             // Then spread from index 1 (since source is at index 0)
-            
+
             targetItr = targets.begin();
             ++targetItr;
             for (; targetItr != targets.end();
-            //for (targetItr = (targets.begin())++; targetItr != targets.end(); 
+            //for (targetItr = (targets.begin())++; targetItr != targets.end();
                      ++targetItr) {
                 targetPosItr = diffusionAtomsMap.find(*targetItr);
                 targetIndex = (*targetPosItr).second;
@@ -276,18 +258,18 @@ void ImportanceDiffusionAgent::makeConnectionMatrix(bmatrix* &connections_,
                 }
             }
         } else {
-            std::vector<Handle>::iterator sourceItr;
+            HandleSeq::iterator sourceItr;
             // Add the indices of all targets as sources
             // then go through all pairwise combinations
 #ifdef DEBUG
-            log->fine("Unordered link");
+            _log->fine("Unordered link");
 #endif
             for (sourceItr = targets.begin(); sourceItr != targets.end();
                     ++sourceItr) {
                 Handle sourceHandle;
                 sourceHandle = (*sourceItr);
                 // If source atom isn't within diffusionThreshold, then skip
-                if (!spreadDecider->spreadDecision(a->get_STI(sourceHandle))) {
+                if (!spreadDecider->spreadDecision(sourceHandle->getSTI())) {
                     continue;
                 }
                 for (targetItr = targets.begin(); targetItr != targets.end();
@@ -309,15 +291,15 @@ void ImportanceDiffusionAgent::makeConnectionMatrix(bmatrix* &connections_,
     // Make sure columns sum to 1.0 and that no more than maxSpreadPercentage
     // is taken from source atoms
 #ifdef DEBUG
-    log->fine("Sum probability for column:");
+    _log->fine("Sum probability for column:");
 #endif
     for (unsigned int j = 0; j < connections.size2(); j++) {
-        double sumProb = 0.0f;
+        double sumProb = 0.0;
         for (unsigned int i = 0; i < connections.size1(); i++) {
             if (i != j) sumProb += connections(i,j);
         }
 #ifdef DEBUG
-        log->fine("%d before - %1.3f", j, sumProb);
+        _log->fine("%d before - %1.3f", j, sumProb);
 #endif
 
         if (sumProb > maxSpreadPercentage) {
@@ -328,15 +310,15 @@ void ImportanceDiffusionAgent::makeConnectionMatrix(bmatrix* &connections_,
             sumProb = maxSpreadPercentage;
         }
 #ifdef DEBUG
-        log->fine("%d after - %1.3f", j, sumProb);
+        _log->fine("%d after - %1.3f", j, sumProb);
 #endif
         //gsl_matrix_set(connections,j,j,1.0-sumProb);
         connections(j,j) = 1.0-sumProb;
     }
-    
+
 #ifdef DEBUG
-    if (log->is_fine_enabled()) {
-        log->debug("Hebbian connection matrix:");
+    if (_log->is_fine_enabled()) {
+        _log->debug("Hebbian connection matrix:");
         printMatrix(connections_);
     }
 #endif
@@ -353,16 +335,16 @@ void ImportanceDiffusionAgent::spreadImportance()
     std::map<Handle,int> diffusionAtomsMap;
     int totalDiffusionAtoms = 0;
 
-    std::vector<Handle> links;
-    std::back_insert_iterator< std::vector<Handle> > out_hi(links);
+    HandleSeq links;
+    std::back_insert_iterator<HandleSeq> out_hi(links);
 
-    log->debug("Begin diffusive importance spread.");
+    _log->debug("Begin diffusive importance spread.");
 
     // Get all HebbianLinks
     if (allLinksSpread) {
-      a->get_handles_by_type(out_hi, LINK, true);
+      _as->get_handles_by_type(out_hi, LINK, true);
     } else {
-      a->get_handles_by_type(out_hi, HEBBIAN_LINK, true);
+      _as->get_handles_by_type(out_hi, HEBBIAN_LINK, true);
     }
 
     totalDiffusionAtoms = makeDiffusionAtomsMap(diffusionAtomsMap, links);
@@ -371,106 +353,89 @@ void ImportanceDiffusionAgent::spreadImportance()
     if (totalDiffusionAtoms == 0) { return; }
 
 #ifdef DEBUG
-    log->debug("%d total diffusion atoms.", totalDiffusionAtoms);
-    log->fine("Creating normalized STI vector.");
+    _log->debug("%d total diffusion atoms.", totalDiffusionAtoms);
+    _log->fine("Creating normalized STI vector.");
 #endif
 
     makeSTIVector(stiVector,totalDiffusionAtoms,diffusionAtomsMap);
 
     makeConnectionMatrix(connections, totalDiffusionAtoms, diffusionAtomsMap, links);
 
-//    result = gsl_vector_alloc(totalDiffusionAtoms);
-//    errorNo = gsl_blas_dgemv(CblasNoTrans,1.0,connections,stiVector,0.0,result);
-
-//    result = new bvector(totalDiffusionAtoms);
-//    result = new bvector(prod(*connections, *stiVector));
     bvector result = prod(*connections, *stiVector);
-    
-/*    if (errorNo) {
-        logger().error("%s\n", gsl_strerror (errorNo)); // XXX
-    }*/
 
-    if (log->is_fine_enabled()) {
-        float normAF;
-        normAF = (a->get_attentional_focus_boundary() - a->get_min_STI(false)) / (float) ( a->get_max_STI(false) - a->get_min_STI(false) );
-        log->fine("Result (AF at %.3f)\n",normAF);
-        printVector(&result,normAF);
-//        printVector(result,0.5f);
+    if (_log->is_fine_enabled()) {
+        double normAF = (_as->get_attentional_focus_boundary() - _as->get_min_STI(false)) / (double) ( _as->get_max_STI(false) - _as->get_min_STI(false) );
+        _log->fine("Result (AF at %.3f)\n",normAF);
+        printVector(&result, normAF);
     }
 
     // set the sti of all atoms based on new values in results vector from
-    // multiplication 
+    // multiplication
 #ifdef DEBUG
     int totalSTI_After = 0;
 #endif
     for (std::map<Handle,int>::iterator i=diffusionAtomsMap.begin();
-            i != diffusionAtomsMap.end(); ++i) {
-        Handle dAtom = (*i).first;
-//        double val = gsl_vector_get(result,(*i).second);
-        double val = result((*i).second);
-        setScaledSTI(dAtom,val);
+            i != diffusionAtomsMap.end(); ++i)
+    {
+        Handle dAtom = i->first;
+        double val = result(i->second);
+        setScaledSTI(dAtom, val);
 #ifdef DEBUG
-        totalSTI_After += a->get_STI(dAtom);
+        totalSTI_After += dAtom->getSTI();
 #endif
     }
 #if 0 //def DEBUG
     if (totalSTI != totalSTI_After) {
-        // This warning is often logged because of floating point round offs
+        // This warning is often logged because of doubleing point round offs
         // when converting from normalised to actual STI values after diffusion.
         log->warn("Total STI before diffusion (%d) != Total STI after (%d)",totalSTI,totalSTI_After);
     }
 #endif
 
     // free memory!
-/*    gsl_matrix_free(connections);
-    gsl_vector_free(stiVector);
-    gsl_vector_free(result);*/
     delete connections;
     delete stiVector;
-//    delete result;
 }
 
-void ImportanceDiffusionAgent::setScaledSTI(Handle h, float scaledSTI)
+void ImportanceDiffusionAgent::setScaledSTI(Handle h, double scaledSTI)
 {
     AttentionValue::sti_t val;
 
-    val = (AttentionValue::sti_t) (a->get_min_STI(false) + (scaledSTI * ( a->get_max_STI(false) - a->get_min_STI(false) )));
+    val = (AttentionValue::sti_t) (_as->get_min_STI(false) + (scaledSTI * ( _as->get_max_STI(false) - _as->get_min_STI(false) )));
 /*
-    AtomSpace *a = _cogserver.getAtomSpace();
-    float af = a->getAttentionalFocusBoundary();
+    double af = _as->getAttentionalFocusBoundary();
     scaledSTI = (scaledSTI * 2) - 1;
     if (scaledSTI <= 1.0) {
-        val = a->getMinSTI(false) + (scaledSTI * ( a->getMinSTI(false) - af ));
+        val = _as->getMinSTI(false) + (scaledSTI * ( _as->getMinSTI(false) - af ));
     } else {
-        val = af + (scaledSTI * (a->getMaxSTI(false) - af ));
+        val = af + (scaledSTI * (_as->getMaxSTI(false) - af ));
     }
 */
-    a->set_STI(h,val);
-    
+    h->setSTI(val);
 }
 
 void ImportanceDiffusionAgent::printMatrix(bmatrix* m)
 {
-    typedef boost::numeric::ublas::compressed_matrix<float>::iterator1 it1_t;
-    typedef boost::numeric::ublas::compressed_matrix<float>::iterator2 it2_t;
+    typedef boost::numeric::ublas::compressed_matrix<double>::iterator1 it1_t;
+    typedef boost::numeric::ublas::compressed_matrix<double>::iterator2 it2_t;
 
     for (it1_t it1 = m->begin1(); it1 != m->end1(); it1++) {
         for (it2_t it2 = it1.begin(); it2 != it1.end(); it2++) {
-            log->fine("(%d,%d) %f", it2.index1(), it2.index2(), *it2);
+            _log->fine("(%d,%d) %f", it2.index1(), it2.index2(), *it2);
         }
     }
 }
 
-void ImportanceDiffusionAgent::printVector(bvector* v, float threshold)
+void ImportanceDiffusionAgent::printVector(bvector* v, double threshold)
 {
-    typedef boost::numeric::ublas::vector<float>::iterator it_t;
+    typedef boost::numeric::ublas::vector<double>::iterator it_t;
 
     for (it_t it = v->begin(); it != v->end(); ++it) {
         if (*it > threshold) {
-            log->fine("(%d) %f +", it.index(), *it);
+            _log->fine("(%d) %f +", it.index(), *it);
         }
         else {
-            log->fine("(%d) %f", it.index(), *it);
+            _log->fine("(%d) %f", it.index(), *it);
         }
     }
 }
@@ -480,7 +445,7 @@ RandGen* SpreadDecider::rng = NULL;
 
 bool SpreadDecider::spreadDecision(AttentionValue::sti_t s)
 {
-    if (getRNG()->randfloat() < function(s))
+    if (getRNG()->randdouble() < function(s))
         return true;
     else
         return false;
@@ -497,20 +462,20 @@ double HyperbolicDecider::function(AttentionValue::sti_t s)
 {
     AtomSpace& a = _cogserver.getAtomSpace();
     // Convert boundary from -1..1 to 0..1
-    float af = a.get_attentional_focus_boundary();
-    float minSTI = a.get_min_STI(false);
-    float maxSTI = a.get_max_STI(false);
-    float norm_b = focusBoundary > 0.0f ?
+    double af = a.get_attentional_focus_boundary();
+    double minSTI = a.get_min_STI(false);
+    double maxSTI = a.get_max_STI(false);
+    double norm_b = focusBoundary > 0.0 ?
         af + (focusBoundary * (maxSTI - af)) :
         af + (focusBoundary * (af - minSTI ));
     // norm_b is now the actual STI value, normalise to 0..1
-    norm_b = (norm_b - minSTI) / (float) ( maxSTI - minSTI );
+    norm_b = (norm_b - minSTI) / (double) ( maxSTI - minSTI );
     // Scale s to 0..1
-    float norm_s = (s - minSTI) / (float) ( maxSTI - minSTI );
-    return (tanh(shape*(norm_s-norm_b))+1.0f)/2.0f;
+    double norm_s = (s - minSTI) / (double) ( maxSTI - minSTI );
+    return (tanh(shape*(norm_s-norm_b))+1.0)/2.0;
 }
 
-void HyperbolicDecider::setFocusBoundary(float b)
+void HyperbolicDecider::setFocusBoundary(double b)
 {
     // Store as -1..1 since exact 0..1 mapping of boundary
     // will change based on min/max STI
@@ -519,15 +484,15 @@ void HyperbolicDecider::setFocusBoundary(float b)
 
 double StepDecider::function(AttentionValue::sti_t s)
 {
-    return (s>focusBoundary ? 1.0f : 0.0f);
+    return (s>focusBoundary ? 1.0 : 0.0);
 }
 
-void StepDecider::setFocusBoundary(float b)
+void StepDecider::setFocusBoundary(double b)
 {
     AtomSpace& a = _cogserver.getAtomSpace();
     // Convert to an exact STI amount
-    float af = a.get_attentional_focus_boundary();
-    focusBoundary = (b > 0.0f)?
+    double af = a.get_attentional_focus_boundary();
+    focusBoundary = (b > 0.0)?
         (int) (af + (b * (a.get_max_STI(false) - af))) :
         (int) (af + (b * (af - a.get_min_STI(false))));
 

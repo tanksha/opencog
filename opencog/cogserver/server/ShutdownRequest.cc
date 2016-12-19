@@ -41,13 +41,15 @@ ShutdownRequest::~ShutdownRequest()
 bool ShutdownRequest::execute()
 {
     std::ostringstream oss;
-    if (_mimeType == "text/plain")
-        oss << "Shutting down cogserver" << std::endl;
+    oss << "Shutting down cogserver" << std::endl;
     send(oss.str());
 
     _cogserver.stop();
-    _requestResult->Exit();
-    _requestResult = NULL;
+
+    ConsoleSocket* con = get_console();
+    OC_ASSERT(con, "Bad request state");
+    set_console(nullptr);
+    con->Exit();
 
     return true;
 }

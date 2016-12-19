@@ -24,32 +24,26 @@
 #ifndef _OPENCOG_IMPORTANCE_DIFFUSION_AGENT_H
 #define _OPENCOG_IMPORTANCE_DIFFUSION_AGENT_H
 
+#include <math.h>
 #include <string>
 
-#include <math.h>
-//#include <gsl/gsl_matrix.h>
-//#include <gsl/gsl_vector.h>
 #include <boost/numeric/ublas/matrix_sparse.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/io.hpp>
 
-#include <opencog/atomspace/AtomSpace.h>
-#include <opencog/truthvalue/AttentionValue.h>
-#include <opencog/cogserver/server/Agent.h>
-#include <opencog/util/Logger.h>
 #include <opencog/util/RandGen.h>
+#include <opencog/util/recent_val.h>
+#include <opencog/cogserver/server/Agent.h>
 #include "SpreadDecider.h"
 
-typedef boost::numeric::ublas::vector<float> bvector;
-typedef boost::numeric::ublas::compressed_matrix<float> bmatrix;
+typedef boost::numeric::ublas::vector<double> bvector;
+typedef boost::numeric::ublas::compressed_matrix<double> bmatrix;
 
 namespace opencog
 {
 /** \addtogroup grp_attention
  *  @{
  */
-
-class CogServer;
 
 /** Spreads short term importance along HebbianLinks using a diffusion approach.
  *
@@ -63,19 +57,17 @@ class CogServer;
  */
 class ImportanceDiffusionAgent : public Agent
 {
-
 private:
-    AtomSpace* a;
 
     //! Total amount spread during recent runs.
     opencog::recent_val<long> amountSpread;
 
     //! Maximum percentage of importance to spread
-    float maxSpreadPercentage;
+    double maxSpreadPercentage;
 
     //! Value that normalised STI has to be above before being spread
     //! Is a normalised value from -1 to 1. 0 == AF
-    float diffusionThreshold;
+    double diffusionThreshold;
 
     //! Whether to spread STI across all types of Links and not just HebbianLinks.
     //! If there are multiple links between the same two Atoms, then it will add up their strengths.
@@ -88,13 +80,13 @@ private:
     //! print a gsl matrix to stdout
     void printMatrix(bmatrix *m);
     //! print a gsl vector to stdout
-    void printVector(bvector *m, float threshold = 1.0f);
+    void printVector(bvector *m, double threshold = 1.0);
 
     //! Set the STI of h from a scaled 0..1 STI value
-    void setScaledSTI(Handle h, float scaledSTI);
+    void setScaledSTI(Handle h, double scaledSTI);
 
     //! Map each atom involved in important diffusion with an index
-    int makeDiffusionAtomsMap(std::map<Handle,int> &i,std::vector<Handle> links);
+    int makeDiffusionAtomsMap(std::map<Handle,int> &i,HandleSeq links);
 
     //! Make vector of original scaled STI values
     void makeSTIVector(bvector* &stiVector, int totalDiffusionAtoms,
@@ -103,22 +95,12 @@ private:
     //! Construct matrix representing HebbianLinks between all atoms
     //! in diffusionAtomsMap.
     void makeConnectionMatrix(bmatrix* &connections, int totalDiffusionAtoms,
-            std::map<Handle,int> diffusionAtomsMap, std::vector<Handle> links);
+            std::map<Handle,int> diffusionAtomsMap, HandleSeq links);
 
     SpreadDecider* spreadDecider;
 
     //! For checking that STI is conserved
     int totalSTI;
-
-    /** Set the agent's logger object
-     *
-     * Note, this will be deleted when this agent is.
-     *
-     * @param l The logger to associate with the agent.
-     */
-    void setLogger(Logger* l);
-
-    Logger *log; //!< Logger object for Agent
 
 public:
 
@@ -129,30 +111,24 @@ public:
     }
 
     enum { HYPERBOLIC, STEP };
-    void setSpreadDecider(int type, float shape = 30);
+    void setSpreadDecider(int type, double shape = 30);
 
     ImportanceDiffusionAgent(CogServer&);
     virtual ~ImportanceDiffusionAgent();
     virtual void run();
 
-    /** Return the agent's logger object
-     *
-     * @return A logger object.
-     */
-    Logger* getLogger();
-
     /** Set the maximum percentage of importance that can be spread.
      * @param p the maximum percentage of importance that can be spread.
      */
-    void setMaxSpreadPercentage(float p);
+    void setMaxSpreadPercentage(double);
 
     /** Get the maximum percentage of importance that can be spread.
      * @return the maximum percentage of importance that can be spread.
      */
-    float getMaxSpreadPercentage() const;
+    double getMaxSpreadPercentage() const;
 
-    void setDiffusionThreshold(float p);
-    float getDiffusionThreshold() const;
+    void setDiffusionThreshold(double);
+    double getDiffusionThreshold() const;
 }; // class
 
 typedef std::shared_ptr<ImportanceDiffusionAgent> ImportanceDiffusionAgentPtr;

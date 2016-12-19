@@ -24,22 +24,17 @@
 #ifndef _OPENCOG_IMPORTANCE_SPREADING_AGENT_H
 #define _OPENCOG_IMPORTANCE_SPREADING_AGENT_H
 
+#include <math.h>
 #include <string>
 
-#include <math.h>
-
-#include <opencog/atomspace/AtomSpace.h>
-#include <opencog/truthvalue/AttentionValue.h>
+#include <opencog/util/recent_val.h>
 #include <opencog/cogserver/server/Agent.h>
-#include <opencog/util/Logger.h>
 
 namespace opencog
 {
 /** \addtogroup grp_attention
  *  @{
  */
-
-class CogServer;
 
 /** Spreads short term importance along HebbianLinks.
  *
@@ -51,16 +46,13 @@ class CogServer;
  */
 class ImportanceSpreadingAgent : public Agent
 {
-
 private:
-    AtomSpace* a;
-
     //! Minimal amount of STI necessary for an atom to have before it spreads
     //! STI.
     AttentionValue::sti_t spreadThreshold;
 
     //! How much to multiply the HebbianLink TruthValue to convert to STI.
-    float importanceSpreadingMultiplier;
+    double importanceSpreadingMultiplier;
 
     //! Whether to spread STI across all types of Links and not just HebbianLinks
     bool allLinksSpread;
@@ -87,22 +79,12 @@ private:
     int sumDifference(Handle source, Handle link);
 
     //! Calculate the difference for an inverse link
-    float calcInverseDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, \
-            float weight);
+    double calcInverseDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, \
+            double weight);
 
     //! Calculate the difference for a normal Hebbian link
-    float calcDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, \
-            float weight);
-
-    /** Set the agent's logger object
-     *
-     * Note, this will be deleted when this agent is.
-     *
-     * @param l The logger to associate with the agent.
-     */
-    void setLogger(Logger* l);
-
-    Logger *log; //!< Logger object for Agent
+    double calcDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, \
+            double weight);
 
 public:
 
@@ -115,12 +97,6 @@ public:
     ImportanceSpreadingAgent(CogServer&);
     virtual ~ImportanceSpreadingAgent();
     virtual void run();
-
-    /** Return the agent's logger object
-     *
-     * @return A logger object.
-     */
-    Logger* getLogger();
 
     /** Set minimal amount of STI necessary for an atom to have before it
      * spreads STI.
@@ -138,7 +114,7 @@ public:
      *
      * @param m the multiplier.
      */
-    void setImportanceSpreadingMultiplier(float m) {
+    void setImportanceSpreadingMultiplier(double m) {
         importanceSpreadingMultiplier = m;
     };
 

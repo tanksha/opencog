@@ -51,7 +51,7 @@ public:
 		logger().set_level(Logger::DEBUG);
 		logger().set_timestamp_flag(false);
 		logger().set_print_to_stdout_flag(true);
-		logger().set_sync_flag(true);
+		// logger().set_sync_flag(true);
 	}
 
 	~MOSESPLNSynergyUTest()
@@ -78,13 +78,14 @@ void MOSESPLNSynergyUTest::tearDown()
 
 void MOSESPLNSynergyUTest::setUp()
 {
-	config().set("SCM_PRELOAD",
-	             "opencog/scm/core_types.scm, "
-	             "opencog/scm/utilities.scm, "
-	             "opencog/scm/av-tv.scm");
-	load_scm_files_from_config(as);
-
-	eval.eval("(add-to-load-path \"/usr/local/share/opencog/scm\")");
+	string cur_pp_dir = string(PROJECT_SOURCE_DIR),
+		cur_dir = cur_pp_dir + "/tests/pln";
+	vector<string> load_paths = {cur_pp_dir, cur_dir};
+	for (string& p : load_paths)
+	{
+		string eval_str = string("(add-to-load-path \"") + p + string("\")");
+		eval.eval(eval_str);
+	}
 
 	eval.eval("(use-modules (opencog))");
 	eval.eval("(use-modules (opencog query))");
@@ -96,12 +97,12 @@ void MOSESPLNSynergyUTest::test_moses_pln_synergy_pm()
 	logger().debug("BEGIN TEST: %s", __FUNCTION__);
 
 	config().set("SCM_PRELOAD",
-	             "examples/moses-pln-synergy/scm/moses-pln-synergy-pm.scm");
+	             "examples/pln/moses-pln-synergy/scm/moses-pln-synergy-pm.scm");
 	load_scm_files_from_config(as);
 
 	// Query the TV of the inference target, which should be
 	//
-	// (ImplicationLink (stv 0.60357851 0.69999999)
+	// (ImplicationLink (stv 0.60357851 0.64124995)
 	//    (OrLink
 	//       (PredicateNode "take-treatment-1" (stv 0.1 0.80000001))
 	//       (PredicateNode "eat-lots-fruits-vegetables" (stv 0.07 0.80000001))
@@ -117,9 +118,10 @@ void MOSESPLNSynergyUTest::test_moses_pln_synergy_pm()
 
 	TS_ASSERT_DIFFERS(target, Handle::UNDEFINED);
 
+#define confidenceToCount(x) 800.0 * ((x) / (1.0-(x))
 	strength_t expected_strength = 0.603579;
-	count_t expected_count = SimpleTruthValue::confidenceToCount(0.7);
-	SimpleTruthValue expected_tv(expected_strength, expected_count);
+	confidence_t expected_confidence = 0.64125;
+	SimpleTruthValue expected_tv(expected_strength, expected_confidence);
 	TS_ASSERT(target->getTruthValue()->operator==(expected_tv));
 }
 
@@ -130,9 +132,9 @@ void MOSESPLNSynergyUTest::test_moses_pln_synergy_fc()
 	// logger().debug("BEGIN TEST: %s", __FUNCTION__);
 
 	// config().set("SCM_PRELOAD",
-	//              "examples/moses-pln-synergy/scm/moses-model.scm,"
-	//              "examples/moses-pln-synergy/scm/background-knowledge.scm,"
-	//              "examples/moses-pln-synergy/scm/pln-config.scm");
+	//              "examples/pln/moses-pln-synergy/scm/moses-model.scm,"
+	//              "examples/pln/moses-pln-synergy/scm/background-knowledge.scm,"
+	//              "examples/pln/moses-pln-synergy/scm/pln-config.scm");
 	// load_scm_files_from_config(as);
 
 	// Handle hsources =
@@ -164,8 +166,8 @@ void MOSESPLNSynergyUTest::test_moses_pln_synergy_fc()
 	// TS_ASSERT_DIFFERS(target, Handle::UNDEFINED);
 
 	// strength_t expected_strength = 0.603579;
-	// count_t expected_count = SimpleTruthValue::confidenceToCount(0.7);
-	// SimpleTruthValue expected_tv(expected_strength, expected_count);
+	// confidence_t expected_confidence = 0.64125;
+	// SimpleTruthValue expected_tv(expected_strength, expected_confidence);
 	// TS_ASSERT(target->getTruthValue()->operator==(expected_tv));
 	TS_ASSERT(true);
 }

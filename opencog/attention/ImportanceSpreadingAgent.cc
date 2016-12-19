@@ -27,7 +27,6 @@
 #include <opencog/atoms/base/Link.h>
 #include <opencog/attention/atom_types.h>
 
-#define DEPRECATED_ATOMSPACE_CALLS
 #include <opencog/atomspace/AtomSpace.h>
 
 #include <opencog/cogserver/server/CogServer.h>
@@ -39,20 +38,17 @@ using namespace opencog;
 ImportanceSpreadingAgent::ImportanceSpreadingAgent(CogServer& cs) :
     Agent(cs)
 {
-    static const std::string defaultConfig[] = {
+    setParameters({
         "ECAN_DEFAULT_SPREAD_THRESHOLD","0",
         "ECAN_DEFAULT_SPREAD_MULTIPLIER","10.0",
         "ECAN_ALL_LINKS_SPREAD","false",
         "", ""
-    };
-    setParameters(defaultConfig);
+    });
 
-    spreadThreshold = (float) (config().get_double
-                               ("ECAN_DEFAULT_SPREAD_THRESHOLD"));
+    spreadThreshold = config().get_double("ECAN_DEFAULT_SPREAD_THRESHOLD");
     allLinksSpread = config().get_bool("ECAN_ALL_LINKS_SPREAD");
 
     // Provide a logger
-    log = NULL;
     setLogger(new opencog::Logger("ImportanceSpreadingAgent.log", Logger::FINE, true));
 }
 
@@ -60,20 +56,8 @@ ImportanceSpreadingAgent::~ImportanceSpreadingAgent()
 {
 }
 
-void ImportanceSpreadingAgent::setLogger(Logger* _log)
-{
-    if (log) delete log;
-    log = _log;
-}
-
-Logger* ImportanceSpreadingAgent::getLogger()
-{
-    return log;
-}
-
 void ImportanceSpreadingAgent::run()
 {
-    a = &_cogserver.getAtomSpace();
     spreadImportance();
 }
 
@@ -82,18 +66,18 @@ void ImportanceSpreadingAgent::spreadImportance()
 {
     AttentionValue::sti_t current;
 
-    std::vector<Handle> atoms;
-    std::vector<Handle>::iterator hi;
-    std::back_insert_iterator< std::vector<Handle> > out_hi(atoms);
+    HandleSeq atoms;
+    HandleSeq::iterator hi;
+    std::back_insert_iterator<HandleSeq> out_hi(atoms);
 
-    a->get_handles_by_type(out_hi, NODE, true);
-    log->fine("---------- Spreading importance for atoms with threshold above %d", spreadThreshold);
+    _as->get_handles_by_type(out_hi, NODE, true);
+   _log->fine("---------- Spreading importance for atoms with threshold above %d", spreadThreshold);
 
     hi = atoms.begin();
     while (hi != atoms.end()) {
         Handle h = *hi;
 
-        current = a->get_STI(h);
+        current = h->getSTI();
         // spread if STI > spread threshold
         if (current > spreadThreshold )
             // spread fraction of importance to nodes it's linked to
@@ -104,7 +88,7 @@ void ImportanceSpreadingAgent::spreadImportance()
 }
 
 // for a bunch of links from the source, get links passed as pointer
-// to avoid retrieving them twice 
+// to avoid retrieving them twice
 int ImportanceSpreadingAgent::sumTotalDifference(Handle source, HandleSeq& links)
 {
     int totalDifference = 0;
@@ -139,29 +123,30 @@ static bool is_source(const Handle& source, const Handle& link)
 // For one link
 int ImportanceSpreadingAgent::sumDifference(Handle source, Handle link)
 {
-    float linkWeight;
-    float linkDifference = 0.0f;
-    std::vector<Handle> targets;
-    std::vector<Handle>::iterator t;
+    double linkWeight;
+    double linkDifference = 0.0;
+    HandleSeq targets;
+    HandleSeq::iterator t;
     AttentionValue::sti_t sourceSTI;
     AttentionValue::sti_t targetSTI;
-    
+
     // If this link doesn't have source as a source return 0
     if (! is_source(source, link)) {
-        log->debug("Skipping link because link doesn't have this source as a source: " + std::to_string(link.value()));
+       _log->debug("Skipping link because link doesn't have this source as a source: " + link->toString());
         return 0;
     }
 
     // Get outgoing set and sum difference for all non source atoms
-    linkWeight = a->get_TV(link)->toFloat();
-    sourceSTI = a->get_STI(source);
+    linkWeight = link->getTruthValue()->toFloat();
+    sourceSTI = source->getSTI();
     targets = link->getOutgoingSet();
 
-    if (a->get_type(link) == INVERSE_HEBBIAN_LINK) {
+    if (link->getType() == INVERSE_HEBBIAN_LINK)
+    {
         for (t = targets.begin(); t != targets.end(); ++t) {
             Handle target_h = *t;
             if (target_h == source) continue;
-            targetSTI = a->get_STI(target_h);
+            targetSTI = target_h->getSTI();
 
             // pylab code for playing with inverse link stealing schemes:
             // s=10; w=0.5; t= frange(-20,20,0.05x)
@@ -176,123 +161,125 @@ int ImportanceSpreadingAgent::sumDifference(Handle source, Handle link)
             Handle target_h = *t;
 
             if (target_h == source) {
-                log->debug("Skipping link because link has source as target: " + std::to_string(link.value()));
+               _log->debug("Skipping link because link has source as target: " + link->toString());
                 continue;
             }
 
-            log->fine("Target atom %s", a->atom_as_string(target_h, false).c_str());
+           _log->fine("Target atom %s", target_h->toString().c_str());
 
-            targetSTI = a->get_STI(target_h);  // why is it 0?
-                
-            linkDifference += calcDifference(sourceSTI,targetSTI,linkWeight);
+            targetSTI = target_h->getSTI();  // why is it 0?
+
+            linkDifference += calcDifference(sourceSTI, targetSTI, linkWeight);
         }
     }
-    if (a->get_type(link) == INVERSE_HEBBIAN_LINK) {
-        linkDifference *= -1.0f;
+    if (link->getType() == INVERSE_HEBBIAN_LINK) {
+        linkDifference *= -1.0;
     }
     return (int) linkDifference;
 }
 
-float ImportanceSpreadingAgent::calcInverseDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, float weight)
+double ImportanceSpreadingAgent::calcInverseDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, double weight)
 {
-    float amount;
+    double amount;
     amount = weight * t + (weight * weight * s);
     if (amount < 0) amount = 0;
     else if (amount > weight * s) amount = weight * s;
     return amount;
 }
 
-float ImportanceSpreadingAgent::calcDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, float weight)
+double ImportanceSpreadingAgent::calcDifference(AttentionValue::sti_t s, AttentionValue::sti_t t, double weight)
 {
     // importance can't spread uphill
     if (s - t > 0) {
         return weight * (s - t);
     }
-    return 0.0f;
+    return 0.0;
 }
 
-bool ImportanceSpreadingAgent::IsHebbianLink::operator()(Handle h) {
-    if (classserver().isA(a->get_type(h),HEBBIAN_LINK)) return true;
+bool ImportanceSpreadingAgent::IsHebbianLink::operator()(Handle h)
+{
+    if (classserver().isA(h->getType(), HEBBIAN_LINK)) return true;
     return false;
 }
 
 void ImportanceSpreadingAgent::spreadAtomImportance(Handle h)
 {
     HandleSeq links;
-    float totalDifference, differenceScaling;
+    double totalDifference, differenceScaling;
     AttentionValue::sti_t sourceSTI;
 
-    std::vector<Handle> linksVector;
-    std::vector<Handle>::iterator linksVector_i;
+    HandleSeq linksVector;
+    HandleSeq::iterator linksVector_i;
 
-    totalDifference = 0.0f;
-    differenceScaling = 1.0f;
+    totalDifference = 0.0;
+    differenceScaling = 1.0;
 
-    log->fine("+Spreading importance for atom %s", a->atom_as_string(h, false).c_str());
+    _log->fine("+Spreading importance for atom %s", h->toString().c_str());
 
     h->getIncomingSet(back_inserter(linksVector));
-    IsHebbianLink isHLPred(a);
+    IsHebbianLink isHLPred(_as);
     if (allLinksSpread) {
-        log->fine("  +Spreading across all links. Found %d", linksVector.size());
+       _log->fine("  +Spreading across all links. Found %d", linksVector.size());
     } else {
-      linksVector.erase(std::remove_if(linksVector.begin(),linksVector.end(),isHLPred), linksVector.end());
-      log->fine("  +Hebbian links found %d", linksVector.size());
+      linksVector.erase(std::remove_if(linksVector.begin(), linksVector.end(), isHLPred), linksVector.end());
+      _log->fine("  +Hebbian links found %d", linksVector.size());
     }
 
-    totalDifference = static_cast<float>(sumTotalDifference(h, linksVector));
-    sourceSTI = a->get_STI(h);
+    totalDifference = sumTotalDifference(h, linksVector);
+    sourceSTI = h->getSTI();
 
     // if there is no hebbian links with > 0 weight
     // or no lower STI atoms to spread to.
-    if (totalDifference == 0.0f) {
-        log->fine("  |totalDifference = 0, spreading nothing");
+    if (totalDifference == 0.0) {
+       _log->fine("  |totalDifference = 0, spreading nothing");
         return;
     }
 
     // Find out the scaling factor required on totalDifference
     // to prevent moving the atom below the spreadThreshold
-    if (a->get_STI(h) - totalDifference < spreadThreshold) {
-        differenceScaling = (a->get_STI(h) - spreadThreshold) / totalDifference;
+    if (h->getSTI() - totalDifference < spreadThreshold) {
+        differenceScaling = (h->getSTI() - spreadThreshold) / totalDifference;
     }
-    log->fine("  +totaldifference %.2f, scaling %.2f", totalDifference,
+   _log->fine("  +totaldifference %.2f, scaling %.2f", totalDifference,
             differenceScaling);
 
     for (linksVector_i = linksVector.begin();
             linksVector_i != linksVector.end(); ++linksVector_i) {
         double transferWeight;
-        std::vector<Handle> targets;
-        std::vector<Handle>::iterator t;
+        HandleSeq targets;
+        HandleSeq::iterator t;
         Handle lh = *linksVector_i;
-        TruthValuePtr linkTV = a->get_TV(lh);
+        TruthValuePtr linkTV = lh->getTruthValue();
 
         // For the case of an asymmetric link without this atom as a source
         if (!is_source(h, lh)) {
-            log->fine("Skipping link due to assymetric link without this atom as a source: " + h.value());
+           _log->fine("Skipping link due to assymetric link without this atom as a source: " + h->toString());
             continue;
         }
 
         targets = lh->getOutgoingSet();
         transferWeight = linkTV->toFloat();
 
-        log->fine("  +Link %s", a->atom_as_string(lh).c_str() );
+       _log->fine("  +Link %s", lh->toString().c_str() );
         //log->fine("    |weight %f, quanta %.2f, size %d",
-        log->fine("    |weight %f, size %d", \
+       _log->fine("    |weight %f, size %d", \
                 transferWeight, targets.size());
 
         for (t = targets.begin();
                 t != targets.end();
-                ++t) {
+                ++t)
+        {
             Handle target_h = *t;
             AttentionValue::sti_t targetSTI;
             double transferAmount;
 
             // Then for each target of link except source...
-            if ( target_h == h ) continue;
+            if (target_h == h) continue;
 
-            targetSTI = a->get_STI(target_h);
+            targetSTI = target_h->getSTI();
 
             // calculate amount to transfer, based on difference and scaling
-            if (a->get_type(lh) == INVERSE_HEBBIAN_LINK) {
+            if (lh->getType() == INVERSE_HEBBIAN_LINK) {
                 // if the link is inverse, then scaling is unnecessary
                 // note the negative sign
                 transferAmount = -calcInverseDifference(sourceSTI,targetSTI, \
@@ -304,11 +291,10 @@ void ImportanceSpreadingAgent::spreadAtomImportance(Handle h)
                         linkTV->toFloat()) * differenceScaling;
             }
 
-            a->set_STI( h, a->get_STI(h) - (AttentionValue::sti_t) transferAmount );
-            a->set_STI( target_h, a->get_STI(target_h) + (AttentionValue::sti_t) transferAmount );
-            log->fine("    |%d sti from %s to %s", (int) transferAmount,
-                    a->atom_as_string(h).c_str(), a->atom_as_string(target_h).c_str() );
+            h->setSTI(h->getSTI() - (AttentionValue::sti_t) transferAmount );
+            target_h->setSTI(target_h->getSTI() + (AttentionValue::sti_t) transferAmount );
+           _log->fine("    |%d sti from %s to %s", (int) transferAmount,
+                    h->toString().c_str(), target_h->toString().c_str() );
         }
     }
-
 }

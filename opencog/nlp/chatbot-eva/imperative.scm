@@ -1,7 +1,7 @@
 ;
 ; imperative.scm
 ;
-; Scaffolding for converting English-langauge imperatives into
+; Scaffolding for converting English-language imperatives into
 ; robot actions.  This implements the full end-to-end pipeline,
 ; of converting English sentences to an intermediate form, matching
 ; the intermediate form to a grounded-knowledge base, and then
@@ -70,7 +70,7 @@
 ;--------------------------------------------------------------------
 
 ; Stove-pipe hack to perform an action associated with an imperative.
-(define (imperative-process imp)
+(define-public (imperative-process imp)
 "
   Process imperative IMP, which should be a SentenceNode.
 "
@@ -114,12 +114,18 @@
 		; At this time, a ListLink is used to anchor suggested
 		; actions to the current-action anchor. Wipe these out.
 		(for-each (lambda (x)
-			(cog-delete-recursive (ListLink current-action x)))
+			(cog-extract-recursive (ListLink current-action x)))
 				action-list)
 
 		; XXX replace this by AIML or something.
 		(if (eq? '() action-list)
-			(display "I don't know how to do that.\n"))
+			(begin
+				(State (Anchor "Chatbot: ChatbotEvaAction")
+					(Concept "Chatbot: NoResult"))
+				(display "I don't know how to do that.\n")))
+
+		(State (Anchor "Chatbot: ChatbotEva")
+			(Concept "Chatbot: ProcessFinished"))
 	)
 
 	; Reset the current-imperative state, as otherwise, any subsequent

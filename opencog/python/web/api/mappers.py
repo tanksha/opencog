@@ -12,6 +12,8 @@ from flask import abort
 from flask.ext.restful import fields, marshal
 from opencog.atomspace import *
 
+# Temporary hack
+from web.api.utilities import count_to_confidence
 
 # TruthValue helpers
 class ParseTruthValue(object):
@@ -45,7 +47,8 @@ class ParseTruthValue(object):
             if 'strength' in data['truthvalue']['details'] \
                 and 'count' in data['truthvalue']['details']:
                 tv = TruthValue(data['truthvalue']['details']['strength'],
-                                TruthValue.count_to_confidence(data['truthvalue']['details']['count']))
+                                count_to_confidence(
+                                    data['truthvalue']['details']['count']))
             else:
                 abort(400, 'Invalid request: truthvalue details object '
                            'requires both a strength and count parameter')
@@ -91,12 +94,12 @@ av_fields = {
 # Atom helpers
 class FormatHandleValue(fields.Raw):
     def format(self, value):
-        return value.value()
+        return value
 
 
 class FormatHandleList(fields.Raw):
     def format(self, values):
-        return [elem.h.value() for elem in values]
+        return [elem.value() for elem in values]
 
 
 class AtomListResponse(object):
@@ -125,7 +128,7 @@ class DeleteAtomResponse(object):
         }
 
 atom_fields = {
-    'handle': FormatHandleValue(attribute='h'),
+    'handle': FormatHandleValue(attribute='uuid'),
     'type': fields.String(attribute='type_name'),
     'name': fields.String,
     'outgoing': FormatHandleList(attribute='out'),
