@@ -1,4 +1,3 @@
-
 ; replace every instance of a character with another
 (define (string-replace-char input findChar replaceWith)
 	(define index #f)
@@ -43,15 +42,17 @@
 (set! count 0)
 
 ; trimed-lists contains list of words in sent, 
-; prep-list contains valid-number inputs,
+; prep-list contains number inputs,
 ; valid-str-index contains the index of the valid inputs from the word-lists.
 
 (for-each (lambda (x)
+	(if (number? x) (set! x (number->string x)))
  	(set! x (string-downcase x))             ; convert to lower case
  	(set! x (string-replace-char x #\] #\ )) ; replace ']' with space ' '
  	(set! x (string-replace-char x #\[ #\ )) ; replace '[' with space ' '
  	(set! x (string-trim-both x))            ; omit leading and trailing whitespace
  	(validate-string x)
+	(if (number? (string->number x)) (set! isValidInput #t))
  	(if (eqv? #t isValidInput)
      	(begin
      	(vector-set! prep-list count x)
@@ -80,10 +81,10 @@
 ) 
 (array->list valid-str-index))
 
+(set! input (string-trim-both input)) 
 (ReferenceLink
 	(NumberNode (strtonum input)) ; Converts input to NumberNode and create ReferenceLink
 	(ListLink
 		(array->list v)
 	))
 )
-
