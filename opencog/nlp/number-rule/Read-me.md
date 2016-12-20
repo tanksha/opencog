@@ -1,8 +1,11 @@
 # Number rule for OpenCog nlp pipeline
 
-Given a SentenceNode sent, (num-rule sent) identifies any number (string or numeric representation) 
+The need for this rule
+- The relex and relex2logic results of sentences (with numeric values) parsed through OpenCog nlp pipeline is not recognizing a number as NumberNode
+
+Given a SentenceNode sent, (num-rule sent) identifies any number (in string or numeric representation) 
 from the sentence parsed through the nlp-parse, Create a NumberNode for those numbers
-and Create a `ReferenceLink` to Word Instances reffering the valid numbers in a sentence.
+and Create a `ReferenceLink` to Word Instances reffering the numbers in a sentence.
 
 
 num-rule.scm
