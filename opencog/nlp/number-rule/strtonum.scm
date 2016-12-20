@@ -19,6 +19,14 @@
 ; -> (strtonum "12345")
 ; -> 12345
 ;
+; Iterates list applying fun to each item
+(define (walk-list lst fun)
+   (if (not (list? lst))
+      (fun lst)
+      (if (not (null? lst))
+         (begin
+            (walk-list (car lst) fun)
+            (walk-list (cdr lst) fun)))))
 
 (define (strtonum input)
   (if (not (eqv? #f (string->number input))) ; if string is in number form. i,e "1234" 
@@ -37,16 +45,7 @@
          #t)
         (else #f)))
 
-; Iterates list applying fun to each item
-(define (walk-list lst fun)
-   (if (not (list? lst))
-      (fun lst)
-      (if (not (null? lst))
-         (begin
-            (walk-list (car lst) fun)
-            (walk-list (cdr lst) fun)))))
-  
-  ; converts string to number
+ ; converts string to number
 (define (calc-result string) 
   (cond ((equal? string "zero") (set! result (+ result 0)))
         ((equal? "one" string) (set! result (+ result 1)))
