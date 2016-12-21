@@ -12,7 +12,7 @@ num-rule.scm
 - accepts a SentenceNode
 - get the words (in their order) of a sentence
 - trim the string of the word instances and get a string of the main word
-- check the list of words for valid number strings, and creat a NumberNode for each 
+- check the list of words for valid number strings, and create a NumberNode for each 
 - Finding the valid words, stores the corresponding WordNode index to create a ReferenceLink.
 
 strtonum.scm
@@ -58,7 +58,7 @@ The `ReferenceLink` will just link the word instances to the NumberNode.
 
 - LIMITATIONS
 
-Currently it can only be used to convert one number in a sentence. It can identify the numbers but give wrong answer. We are working on it.
+Currently it can only be used to convert one number in a sentence. It can identify the numbers but gives wrong answer. We are working on it.
 
 guile> (define sent2 (nlp-parse "Two fridges should cost no more than fifteen thousand dollars"))
 
