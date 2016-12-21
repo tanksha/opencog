@@ -1,3 +1,4 @@
+;Author - Dawit Abraham
 ; This scheme procedure convers strings like "two hundred and twenty five" into
 ; numbers like 225.0 that can be used in numerical calculations. 
 ;
