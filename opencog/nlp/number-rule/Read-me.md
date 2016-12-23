@@ -40,7 +40,7 @@ Example:
   
 	guile> (num-rule sent)
 
-#Result:
+###Result:
 (ReferenceLink
 
    (NumberNode "15000.000000")
@@ -55,7 +55,7 @@ Example:
 
 The `ReferenceLink` will just link the word instances to the NumberNode.
 
-- LIMITATIONS
+###LIMITATIONS
 
 Currently it can only be used to convert one number in a sentence. It can identify the numbers but gives wrong answer. We are working on it.
 
