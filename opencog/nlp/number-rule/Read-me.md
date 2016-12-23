@@ -34,14 +34,13 @@ Example:
   guile> (define sent (nlp-parse "The fridge should cost no more than fifteen thousand dollars"))
 - Load the number rule procedures, apply it to sent and see the result
 
-	guile> (load-scm-from-file "/home/username/opencog-directory/opencog/opencog/nlp/Number-rule/strtonum.scm")
+	guile> (load-scm-from-file "opencog-master/opencog/opencog/nlp/Number-rule/strtonum.scm")
   
-	guile> (load-scm-from-file "/home/username/opencog-directory/opencog/opencog/nlp/Number-rule/num-rule.scm")
-  
-	guile> (num-rule sent)
+	guile> (load-scm-from-file "opencog-master/opencog/opencog/nlp/Number-rule/num-rule.scm")
   
 	guile> (num-rule sent)
-  
+
+#Result:
 (ReferenceLink
 
    (NumberNode "15000.000000")
