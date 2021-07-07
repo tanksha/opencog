@@ -14,210 +14,74 @@ INCLUDE_DIRECTORIES(
 	${CMAKE_CURRENT_BINARY_DIR}
 )
 
-SET(CYTHON_FLAGS "-f")
-
-# Cythonizes one .pyx file into a .cpp file
-# Additional arguments are dependencies
-MACRO(CYTHON_ADD_MODULE_PYX name)
-	IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${name}.pxd)
-		SET(DEPENDS ${name}.pyx ${name}.pxd)
-	ENDIF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${name}.pxd)
-	# Allow the user to specify dependencies as optional arguments
-	SET(DEPENDS ${DEPENDS} ${ARGN})
-	ADD_CUSTOM_COMMAND(
-		OUTPUT ${name}.cpp
-		COMMAND ${CYTHON_EXECUTABLE}
-		ARGS ${CYTHON_FLAGS} -I ${PROJECT_BINARY_DIR}
-		      -I ${ATOMSPACE_INCLUDE_DIR}/opencog/cython
-		      # -I /usr/local/include/opencog/cython
-		      -o ${name}.cpp
-		      --cplus ${CMAKE_CURRENT_SOURCE_DIR}/${name}.pyx
-		DEPENDS ${DEPENDS}
-		COMMENT "Cythonizing ${name}.pyx")
-ENDMACRO(CYTHON_ADD_MODULE_PYX)
-
+IF (${PYTHONLIBS_VERSION_STRING} VERSION_LESS 3.0.0)
+	SET(CYTHON_FLAGS "-2" "-f" "-Wextra" # "-Werror"
+		"-I" "${ATOMSPACE_INCLUDE_DIR}/opencog/cython"
+		"-I" "${ATOMSPACE_INCLUDE_DIR}/opencog/cython/opencog")
+ELSE ()
+	SET(CYTHON_FLAGS "-3" "-f" "-Wextra" # "-Werror"
+		"-I" "${ATOMSPACE_INCLUDE_DIR}/opencog/cython"
+		"-I" "${ATOMSPACE_INCLUDE_DIR}/opencog/cython/opencog")
+ENDIF ()
 
 # Use this as a guide:
 # https://github.com/OpenKinect/libfreenect/blob/master/wrappers/python/CMakeLists.txt
 
-IF (HAVE_ATOMSPACE)
-	############################## type constructors #####################
-	CYTHON_ADD_MODULE_PYX(cogserver_type_constructors)
+##################### NLP Types ##################
 
-	list(APPEND ADDITIONAL_MAKE_CLEAN_FILES "cogserver_type_constructors.cpp")
+CYTHON_ADD_MODULE_PYX(nlp_types
+	"nlp_types.pyx"
+)
 
-	ADD_LIBRARY(cogserver_type_constructors SHARED
-		cogserver_type_constructors.cpp
+list(APPEND ADDITIONAL_MAKE_CLEAN_FILES "nlp_types.cpp")
+
+# opencog.nlp_types Python bindings
+INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR})
+
+ADD_LIBRARY(nlp_types_cython SHARED
+	nlp_types.cpp
+)
+
+ADD_DEPENDENCIES(nlp_types_cython nlp-types)
+
+TARGET_LINK_LIBRARIES(nlp_types_cython
+	nlp-types
+	${ATOMSPACE_LIBRARIES}
+	${PYTHON_LIBRARIES}
+)
+
+SET_TARGET_PROPERTIES(nlp_types_cython PROPERTIES
+	PREFIX ""
+	OUTPUT_NAME nlp_types)
+
+INSTALL (TARGETS nlp_types_cython
+	DESTINATION "${PYTHON_DEST}")
+
+##################### OpenPsi ##################
+
+IF (HAVE_OPENPSI)
+	CYTHON_ADD_MODULE_PYX(openpsi
+	    "openpsi.pyx"
+	    "../../openpsi/OpenPsiSCM.h"
+	    openpsi
 	)
 
-	# XXX FIXME Cython should not static link the atom-types, but
-	# but should instead dynamic-load them, as needed.
-	ADD_DEPENDENCIES(cogserver_type_constructors nlp_atom_types)
-	ADD_DEPENDENCIES(cogserver_type_constructors attention_atom_types)
-	ADD_DEPENDENCIES(cogserver_type_constructors spacetime_atom_types)
-	ADD_DEPENDENCIES(cogserver_type_constructors pln_atom_types)
-	ADD_DEPENDENCIES(cogserver_type_constructors embodiment_atom_types)
-	ADD_DEPENDENCIES(cogserver_type_constructors spacetime_atom_types)
+	list(APPEND ADDITIONAL_MAKE_CLEAN_FILES "openpsi.cpp")
 
-	TARGET_LINK_LIBRARIES(cogserver_type_constructors
-		attention-types
-		embodiment-types
-		nlp-types
-		spacetime-types
-		${ATOMSPACE_LIBRARIES}
+	# opencog.openpsi Python bindings
+	ADD_LIBRARY(openpsi_cython SHARED
+	    openpsi.cpp
+	)
+
+	TARGET_LINK_LIBRARIES(openpsi_cython
+		openpsi
 		${PYTHON_LIBRARIES}
 	)
 
-	SET_TARGET_PROPERTIES(cogserver_type_constructors PROPERTIES
-		PREFIX ""
-		OUTPUT_NAME cogserver_type_constructors)
+	SET_TARGET_PROPERTIES(openpsi_cython PROPERTIES
+	    PREFIX ""
+	    OUTPUT_NAME openpsi)
 
-	INSTALL (TARGETS cogserver_type_constructors
-		DESTINATION "${DATADIR}/python/opencog")
-    IF (HAVE_OCTOMAP)
-	############################ spacetime #########################
-        #"../../spacetime/SpaceServer.h" "../../spacetime/TimeServer.h"
-        CYTHON_ADD_MODULE_PYX(spacetime
-            "${ATOMSPACE_INCLUDE_DIR}/opencog/cython/opencog/atomspace.pxd"
-        )
-        list(APPEND ADDITIONAL_MAKE_CLEAN_FILES "spacetime.cpp")
-        ADD_LIBRARY(spacetime_cython SHARED
-            spacetime.cpp
-        )
-
-        TARGET_LINK_LIBRARIES(spacetime_cython
-            SpaceMap
-            spacetime
-            ${ATOMSPACE_LIBRARIES}
-            ${COGUTIL_LIBRARY}
-            ${PYTHON_LIBRARIES}
-        )
-
-        SET_TARGET_PROPERTIES(spacetime_cython PROPERTIES
-            PREFIX ""
-            OUTPUT_NAME spacetime)
-
-        INSTALL (TARGETS spacetime_cython
-            DESTINATION "${DATADIR}/python/opencog")
-
-        ############################ spatial #########################
-        CYTHON_ADD_MODULE_PYX(spatial
-            "${ATOMSPACE_INCLUDE_DIR}/opencog/cython/opencog/atomspace.pxd"
-            "../../spacetime/SpaceServer.h" "../../spacetime/TimeServer.h"
-        )
-        list(APPEND ADDITIONAL_MAKE_CLEAN_FILES "spatial.cpp")
-        ADD_LIBRARY(spatial_cython SHARED
-            spatial.cpp
-        )
-
-        TARGET_LINK_LIBRARIES(spatial_cython
-            SpaceMap
-            SpaceMapUtil
-            spacetime
-            ${ATOMSPACE_LIBRARIES}
-            ${COGUTIL_LIBRARY}
-            ${PYTHON_LIBRARIES}
-        )
-
-        SET_TARGET_PROPERTIES(spatial_cython PROPERTIES
-            PREFIX ""
-            OUTPUT_NAME spatial)
-
-        INSTALL (TARGETS spatial_cython
-            DESTINATION "${DATADIR}/python/opencog")
-    ENDIF (HAVE_OCTOMAP)
-ENDIF (HAVE_ATOMSPACE)
-
-
-IF (HAVE_SERVER)
-	############################ cogserver #########################
-	CYTHON_ADD_MODULE_PYX(cogserver
-		"${ATOMSPACE_INCLUDE_DIR}/opencog/cython/opencog/atomspace.pxd"
-		"request.pyx" "agent.pyx" "agent_finder_types.h"
-		"../../cogserver/server/Agent.h" "../../cogserver/server/Request.h"
-		"../../spacetime/SpaceServer.h" "../../spacetime/TimeServer.h"
-	)
-
-	list(APPEND ADDITIONAL_MAKE_CLEAN_FILES "cogserver.cpp")
-
-	# opencog.cogserver Python bindings
-	ADD_LIBRARY(cogserver_cython SHARED
-		cogserver.cpp
-	)
-
-	TARGET_LINK_LIBRARIES(cogserver_cython
-		server
-		${ATOMSPACE_LIBRARIES}
-		${COGUTIL_LIBRARY}
-		${PYTHON_LIBRARIES}
-	)
-
-	SET_TARGET_PROPERTIES(cogserver_cython PROPERTIES
-		PREFIX ""
-		OUTPUT_NAME cogserver)
-
-	INSTALL (TARGETS cogserver_cython
-		DESTINATION "${DATADIR}/python/opencog")
-
-	####################### agent finder ########################
-	CYTHON_ADD_MODULE_PYX(agent_finder
-		"${ATOMSPACE_INCLUDE_DIR}/opencog/cython/opencog/atomspace.pxd"
-		"cogserver.pxd"
-		"../../cogserver/server/Agent.h" "../../cogserver/server/Request.h"
-		"../../spacetime/SpaceServer.h" "../../spacetime/TimeServer.h"
-	)
-
-	list(APPEND ADDITIONAL_MAKE_CLEAN_FILES
-		"agent_finder.cpp" "agent_finder_api.h")
-
-	# utility library for PythonModule
-	ADD_LIBRARY(agent_finder SHARED
-		agent_finder.cpp
-	)
-
-	TARGET_LINK_LIBRARIES(agent_finder
-		${ATOMSPACE_LIBRARIES}
-		${PYTHON_LIBRARIES}
-		${Boost_THREAD_LIBRARY}
-		${Boost_SYSTEM_LIBRARY}
-	)
-
-	SET_TARGET_PROPERTIES(agent_finder PROPERTIES
-		PREFIX ""
-		OUTPUT_NAME agent_finder)
-
-	INSTALL (TARGETS agent_finder
-		DESTINATION "${DATADIR}/python/opencog")
-ENDIF(HAVE_SERVER)
-
-IF (HAVE_STATISTICS)
-	CYTHON_ADD_MODULE_PYX(statistics
-		"../../learning/statistics/DataProvider.h"
-		"../../learning/statistics/Probability.h"
-		"../../learning/statistics/Entropy.h"
-		"../../learning/statistics/InteractionInformation.h"
-	)
-
-	list(APPEND ADDITIONAL_MAKE_CLEAN_FILES "statistics.cpp")
-
-	# opencog.statistics Python bindings
-	ADD_LIBRARY(statistics_cython SHARED
-		statistics.cpp
-	)
-
-	TARGET_LINK_LIBRARIES(statistics_cython
-		statistics
-		${PYTHON_LIBRARIES}
-	)
-
-	SET_TARGET_PROPERTIES(statistics_cython PROPERTIES
-		PREFIX ""
-		OUTPUT_NAME statistics)
-
-	INSTALL (TARGETS statistics_cython
-		DESTINATION "${DATADIR}/python/opencog")
-ENDIF (HAVE_STATISTICS)
-
-INSTALL (FILES
-	__init__.py
-	DESTINATION "${DATADIR}/python/opencog")
+	INSTALL (TARGETS openpsi_cython
+	    DESTINATION "${PYTHON_DEST}")
+ENDIF (HAVE_OPENPSI)

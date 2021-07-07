@@ -650,6 +650,222 @@ For now, most of the results are in r2l-atomspace.scm
 	(ConceptNode "tree@160bc480-942c-4421-b798-04c004c011f5" (stv 0.001 0.99000001))
 )
 
+;;;;;;;;;;;;;; Other suppporting LG output ;;;;;;;;;;;;;;;;;;
+(LgWordCset
+   (WordInstanceNode "tall@7bd00625-1ff7-4e77-9900-5e943141d281")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "A")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "mean@524fdbed-149e-47ce-a2a2-494e80962580")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "Sp")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "dWV")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "O")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "I@5219488c-e6f1-413a-8494-77deeb9f33f3")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "Wd")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "Sp*i")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "grow@3fe4efed-5135-408f-bc1b-d02343bb69c1")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "Sp")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "dWV")
+         (LgConnDirNode "-")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "plants@0f71e243-1327-49af-8020-f6aa3ef0d273")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "VJr*i")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "O")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "collects@78c90976-cb18-4b09-9169-00bc3cc6a70a")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "O")
+         (LgConnDirNode "+")
+      )
+      (LgConnector
+         (LgConnNode "VJl*i")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "tiny@ab783d83-a6cb-4be8-9d6d-45b97a1bd955")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "A")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "seeds@474593d7-5a5c-4ceb-9cbb-173ade98cc59")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "Dmc")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "Op")
+         (LgConnDirNode "-")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "eats@5ec780eb-a98b-4650-a680-3b0163a8822e")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "VJr*t")
+         (LgConnDirNode "-")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "steals@d88d647d-5c02-481e-b8d0-cfd20d33fb23")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "VJl*t")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "Bob@fd5fb72f-0d3f-4517-8b20-8147df2ee7d3")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "Wd")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "Ss")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "climbs@cc237a97-1cde-4939-bf7e-93d607eb3d7d")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "O")
+         (LgConnDirNode "+")
+      )
+      (LgConnector
+         (LgConnNode "VJl*i")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "green@7bdd117a-14ab-4699-81e3-f89259d848df")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "A")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "robot@91c3e125-bca8-42f3-8a48-deea6a29c0de")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "Ds**c")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "Wd")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "Ss")
+         (LgConnDirNode "+")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "apple@ca552878-32d4-41e3-aaa3-34239ba98f34")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "A")
+         (LgConnDirNode "-")
+         (LgConnMultiNode "@")
+      )
+      (LgConnector
+         (LgConnNode "Dmu")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "Ou")
+         (LgConnDirNode "-")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "tree@160bc480-942c-4421-b798-04c004c011f5")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "Ds**c")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "Os")
+         (LgConnDirNode "-")
+      )
+   )
+)
+(LgWordCset
+   (WordInstanceNode "grabs@50f22d3b-c293-41e7-afdd-b2731d6578ef")
+   (LgAnd
+      (LgConnector
+         (LgConnNode "VJr*i")
+         (LgConnDirNode "-")
+      )
+      (LgConnector
+         (LgConnNode "O")
+         (LgConnDirNode "+")
+      )
+   )
+)
+
 
 ;;;;;;;;;;;;;;;;; RelEx2Logic style output ;;;;;;;;;;;;;;;;;;;
 #|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||

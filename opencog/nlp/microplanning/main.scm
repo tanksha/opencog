@@ -1,5 +1,11 @@
 
 (use-modules (ice-9 receive))  ; for receive, below
+(use-modules (ice-9 optargs))  ; for define*-public
+(use-modules (srfi srfi-1)
+             (opencog)
+             (opencog nlp)  ; need the atom types
+             (opencog nlp relex2logic) ; helpers.scm uses this
+             (opencog nlp sureal))
 
 ;
 ; loading additional dependency
@@ -18,7 +24,9 @@
 ; =======================================================================
 
 ; -----------------------------------------------------------------------
-; See documentation below ...
+; Because we use the case-lambda, here, instead of optargs,
+; we cannot use define*-public, like we would like to. So the
+; export is down below.  Oh well.
 (define microplanning
 	(case-lambda
 		((sl ut) (microplanning-main sl ut *default_chunks_option* #t))
@@ -27,6 +35,7 @@
 )
 
 (export microplanning)
+
 
 (set-procedure-property! microplanning 'documentation
 "
@@ -37,9 +46,10 @@
 ")
 
 ; =======================================================================
-; Some contants
+; Some constants
 ; =======================================================================
 
+; TODO: Describe what these variables are for.
 (define *microplanning_not_sayable* 0)
 (define *microplanning_sayable* 1)
 (define *microplanning_too_long* 2)
@@ -93,27 +103,27 @@
 	(microplanning-init)
 
     ; Reset (clear) SuReal cache to assure it is empty before start calling sureal.
-    ; Remark that SuReal Cache is not thread-safe. So it is not supposed to be used 
-    ; if the sureal queries are split into several threads. If you plan to do 
-    ; this (split sureal requests amongst multiple threads), just comment the 
+    ; Remark that SuReal Cache is not thread-safe. So it is not supposed to be used
+    ; if the sureal queries are split into several threads. If you plan to do
+    ; this (split sureal requests amongst multiple threads), just comment the
     ; following call and change the call to sureal below to use its non-cached version.
     ;
-    ; It is not thread safe because in this version there is only one instance of 
-    ; the cache (reached via a singleton wrapper). So if two threads with two 
-    ; different Microplanner queries add stuff to the cache, one may lead to false 
-    ; hits in the other. In addition to this, the cache is reset (clear) just before 
-    ; the Microplanner query starts so if the second query reach the reset point 
-    ; before the first query ended, the cache will be reset during the lifetime 
+    ; It is not thread safe because in this version there is only one instance of
+    ; the cache (reached via a singleton wrapper). So if two threads with two
+    ; different Microplanner queries add stuff to the cache, one may lead to false
+    ; hits in the other. In addition to this, the cache is reset (clear) just before
+    ; the Microplanner query starts so if the second query reach the reset point
+    ; before the first query ended, the cache will be reset during the lifetime
     ; of the first query, which may lead to false misses.
     ;
-    ; A suggested approach to make it thread safe is having each Microplanner 
+    ; A suggested approach to make it thread safe is having each Microplanner
     ; query to have its own cache instance.
 	(reset-sureal-cache seq-link)
 
 	(set! all-sets (make-sentence-chunks
 		(cog-outgoing-set seq-link) utterance-type option))
 
-	(if (null? all-sets) #f (map finalize all-sets))
+	(if (nil? all-sets) #f (map finalize all-sets))
 )
 
 ; -----------------------------------------------------------------------
@@ -149,7 +159,7 @@
 			(cond
 				; make-sentence made a new chunk; make more chunks
 				; with the remaining atoms.
-				((not (null? new-atomW-chunk))
+				((not (nil? new-atomW-chunk))
 					; TODO Keep some of the atoms (those that do not
 					; satisfy sentence forms) for later use?
 					(recursive-helper
@@ -160,7 +170,7 @@
 				)
 				; Unable to form more chunks, store the created chunks
 				; (if any) & their corresponding utterance-type.
-				((not (null? curr-chunks))
+				((not (nil? curr-chunks))
 					(set! all-chunks-sets
 						(cons
 							(make <chunks-set>
@@ -177,7 +187,7 @@
 
 		; If not the first sentence, and have "interrogative" utterance
 		; type, allow "declarative"
-		(if (and (not (null? curr-chunks))
+		(if (and (not (nil? curr-chunks))
 				(string=? "interrogative" utterance-type))
 			(set! ut (list "interrogative" "declarative"))
 		)
@@ -185,7 +195,7 @@
 		(cond
 			; Use the sub-helper to keep calling make-sentence until
 			; all atoms are used, branching on all allowed utterance type.
-			((not (null? atomW-unused)) (for-each sub-helper ut))
+			((not (nil? atomW-unused)) (for-each sub-helper ut))
 
 			; Finished all atoms, store the created chunks & their
 			; corresponding utterance-type.
@@ -204,7 +214,7 @@
 	(recursive-helper atomW-complete-set '() '())
 
 	(cond
-		((not (null? all-chunks-sets))
+		((not (nil? all-chunks-sets))
 			(receive (complete-sets incomplete-sets)
 				(partition (lambda (cs) (= (get-leftover-count cs) 0)) all-chunks-sets)
 
@@ -227,7 +237,7 @@
 				; variation.
 				(letrec ((sort-by-variation
 						(lambda (sets)
-							(if (null? sets)
+							(if (nil? sets)
 								'()
 								(receive (this next)
 									; Split by finding all whose # of sentences is
@@ -294,8 +304,8 @@
 
 			; Try "saying" the previous working iteration again (if
 			; available).
-			(if (null? good-set)
-				(if (not (null? atomW-unused))
+			(if (nil? good-set)
+				(if (not (nil? atomW-unused))
 					(recursive-helper (list
 							(pick-atomW atomW-unused atomW-used
 								(get-main-weight-proc option) utterance-type)) #t)
@@ -332,7 +342,7 @@
 								(lset-difference equal? temp-var1 temp-var2)))
 
 						(cond
-							((null? temp-differences)
+							((nil? temp-differences)
 								(give-up-unadded-part))
 							(else
 								; Find the first link in atomW-not-tried that
@@ -365,7 +375,7 @@
 				(update-chunk)
 
 				; Continue only if there is more to say.
-				(if (not (null? atomW-unused))
+				(if (not (nil? atomW-unused))
 					(recursive-helper
 						(cons
 							(pick-atomW atomW-unused atomW-chunk
@@ -521,15 +531,15 @@
 
 	; do something with SuReal to see if all atoms can be included in a sentence
     ;
-    ; Remark that SuReal Cache is not thread-safe. So it is not supposed to be used 
-    ; if the sureal queries are split into several threads. If you plan to do 
-    ; this (split sureal requests amongst multiple threads), just comment the 
+    ; Remark that SuReal Cache is not thread-safe. So it is not supposed to be used
+    ; if the sureal queries are split into several threads. If you plan to do
+    ; this (split sureal requests among multiple threads), just comment the
     ; call to reset-sureal-cache above and change the line below to call 'sureal'
     ; instead of 'cached-sureal'
-	(define say-able (not (null? (cached-sureal temp-set-link))))
+	(define say-able (not (nil? (cached-sureal temp-set-link))))
 
 	; remove the temporary SetLink
-	(cog-extract temp-set-link)
+	(cog-extract! temp-set-link)
 
 	(cond
 		; not long/complex but sayable

@@ -3,6 +3,10 @@
 ;
 ; Assorted utilties for checking R2L outputs.
 ;
+(use-modules (srfi srfi-1))
+
+(use-modules (opencog))
+(use-modules (opencog exec))
 
 ; -----------------------------------------------------------------------
 (define-public (r2l-get-root atom)
@@ -13,13 +17,13 @@
   in the case where RelEx2Logic is called with the r2l(...) function.
 "
 	(define iset (cog-incoming-set atom))
-	
+
 	; Halt when the SetLink that wraps around R2L outputs is reached.
 	; The SetLink is created by r2l(...)
 	(if (and (= (length iset) 1) (equal? 'SetLink (cog-type (car iset))))
 		(list atom)
 		; if no incoming set (happens when using relex-parse(...))
-		(if (null? iset)
+		(if (nil? iset)
 			(list atom)
 			(append-map r2l-get-root iset)
 		)
@@ -33,7 +37,7 @@
 
   Given a R2L style node, find the corresponding WordInstanceNode.
 "
-	(cond ((null? node) '())
+	(cond ((nil? node) '())
 	      ((has-word-inst? node) (car (cog-chase-link 'ReferenceLink 'WordInstanceNode node)))
 	      (else '())
 	)
@@ -48,7 +52,7 @@
   WordInstanceNode since maybe it is not an instanced word.
   XXX TODO: update this when non-instanced R2L node are linked to WordNode
 "
-	(cond ((null? node) '())
+	(cond ((nil? node) '())
 	      ((has-word? node) (cog-node 'WordNode (cog-name node)))
 	      (else '())
 	)
@@ -72,7 +76,7 @@
   Return #t or #f depends on whether the node has a WordInstanceNode.
 "
 	(if (cog-node? node)
-		(not (null? (cog-chase-link 'ReferenceLink 'WordInstanceNode node)))
+		(not (nil? (cog-chase-link 'ReferenceLink 'WordInstanceNode node)))
 		#f)
 )
 
@@ -84,7 +88,7 @@
   Return #t or #f depends on whether the node has a WordNode.
   TODO: update this when non-instanced R2L node are linked to WordNode
 "
-	(not (null? (cog-node 'WordNode (cog-name node))))
+	(not (nil? (cog-node 'WordNode (cog-name node))))
 )
 
 ; -----------------------------------------------------------------------

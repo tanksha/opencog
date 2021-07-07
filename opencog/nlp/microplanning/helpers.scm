@@ -1,3 +1,4 @@
+(use-modules (srfi srfi-1)) ; For 'every'
 
 ; =======================================================================
 ; Helper functions
@@ -39,7 +40,7 @@
 ;
 (define (word-inst-has-attr? word-inst attr-string)
 	(define attr-list (word-inst-get-attr word-inst))
-	(and (not (null? attr-list)) (member attr-string attr-list (lambda (s a) (string=? s (cog-name a)))))
+	(and (not (nil? attr-list)) (member attr-string attr-list (lambda (s a) (string=? s (cog-name a)))))
 )
 
 ; -----------------------------------------------------------------------
@@ -50,7 +51,7 @@
 ;
 (define (cog-has-node? atom target)
 	(define (recursive-helper queue)
-		(cond ((null? queue)
+		(cond ((nil? queue)
 			#f
 		      )
 		      ((equal? (car queue) target)
@@ -76,7 +77,7 @@
 ;
 (define (cog-has-atom-type? atom type)
 	(define (recursive-helper queue)
-		(cond ((null? queue)
+		(cond ((nil? queue)
 			#f
 		      )
 		      ((equal? (cog-type (car queue)) type)
@@ -254,7 +255,7 @@
 	(define result-list (map (lambda (i) (if (member i anchor-list) 0 1)) main-list))
 
 	(define (left2right-helper sub-list curr-dist)
-		(cond ((null? sub-list)
+		(cond ((nil? sub-list)
 			'()
 		      )
 		      ((= (car sub-list) 0)
@@ -267,7 +268,7 @@
 	)
 
 	(define (right2left-helper sub-list curr-dist)
-		(cond ((null? sub-list)
+		(cond ((nil? sub-list)
 			'()
 		      )
 		      ((= (car sub-list) 0)
@@ -279,7 +280,7 @@
 				(cons curr-dist (right2left-helper (cdr sub-list) (+ 1 curr-dist)))
 			)
 		      )
-		)				
+		)
 	)
 
 	(set! result-list (left2right-helper result-list len))
@@ -288,4 +289,3 @@
 	(set! result-list (reverse result-list))
 	result-list
 )
-

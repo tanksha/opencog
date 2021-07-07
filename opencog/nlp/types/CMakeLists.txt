@@ -18,7 +18,7 @@ ADD_LIBRARY (nlp-types SHARED
 )
 
 TARGET_LINK_LIBRARIES(nlp-types
-	${ATOMSPACE_LIBRARIES}
+	${ATOMSPACE_atomtypes_LIBRARY}
 )
 
 # Without this, parallel make will race and crap up the generated files.
@@ -26,17 +26,21 @@ ADD_DEPENDENCIES(nlp-types nlp_atom_types)
 
 IF (WIN32)
     INSTALL (TARGETS nlp-types
-		DESTINATION "lib${LIB_DIR_SUFFIX}/opencog/modules")
+		DESTINATION "lib${LIB_DIR_SUFFIX}/opencog")
 ELSE (WIN32)
     INSTALL (TARGETS nlp-types
-		LIBRARY DESTINATION "lib${LIB_DIR_SUFFIX}/opencog/modules")
+		LIBRARY DESTINATION "lib${LIB_DIR_SUFFIX}/opencog")
 ENDIF (WIN32)
 
 INSTALL (FILES
 	${CMAKE_CURRENT_BINARY_DIR}/atom_types.h
 	DESTINATION "include/${PROJECT_NAME}/nlp/types"
 )
-INSTALL (FILES
+
+ADD_GUILE_MODULE (FILES
 	${CMAKE_CURRENT_BINARY_DIR}/nlp_types.scm
-	DESTINATION "${DATADIR}/scm/nlp/types"
+	MODULE_DESTINATION "${GUILE_SITE_DIR}/opencog/nlp/types"
+	DEPENDS nlp_atom_types
 )
+
+ADD_GUILE_EXTENSION(SCM_CONFIG nlp-types "opencog-ext-path-nlp-types")

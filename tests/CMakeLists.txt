@@ -2,55 +2,40 @@ ENABLE_TESTING()
 INCLUDE(AddCxxtest)
 
 IF (WIN32)
-	ADD_DEFINITIONS(-D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
-	                -D_CRT_SECURE_NO_WARNINGS)
+    ADD_DEFINITIONS(-D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
+                    -D_CRT_SECURE_NO_WARNINGS)
 ENDIF (WIN32)
 
-ADD_DEFINITIONS(-DPROJECT_SOURCE_DIR=\\"${CMAKE_SOURCE_DIR}\\"
-                -DPROJECT_BINARY_DIR=\\"${CMAKE_BINARY_DIR}\\")
+ADD_DEFINITIONS(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+                -DPROJECT_BINARY_DIR="${CMAKE_BINARY_DIR}")
+
+# All tests should load the atomspace scm from the build dir, unless the scm
+# file is specific to the test (this variable is used by ADD_CXXTEST)
+SET(GUILE_LOAD_PATH "${PROJECT_BINARY_DIR}/opencog/scm")
 
 # The atom_types.h file is written to the build directory
 INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR})
 
 # Perform tests in component-dependency order, as much as possible.
-# For example, since most things depends on the atomspace,
-# its is tested first.
 IF (CXXTEST_FOUND)
 
 	IF (HAVE_ATOMSPACE)
-		# Persistence is for saving/restoring atomspace to disk.
-		ADD_SUBDIRECTORY (persist)
-
-		# The cogserver exposes the atomspace to outside users.
-		IF (HAVE_SERVER)
-			ADD_SUBDIRECTORY (server)
-		ENDIF (HAVE_SERVER)
-
-		IF (HAVE_OCTOMAP)
-			ADD_SUBDIRECTORY (spacetime)
-			ADD_SUBDIRECTORY (spatial)
-			ADD_SUBDIRECTORY (timeoctomap)
-		ENDIF (HAVE_OCTOMAP)
+		ADD_SUBDIRECTORY (neighbors)
 
 		ADD_SUBDIRECTORY (nlp)
 
-		ADD_SUBDIRECTORY (pln)
-
-		ADD_SUBDIRECTORY (pln_old)
-
-		ADD_SUBDIRECTORY (openpsi)
+		IF (HAVE_OPENPSI)
+			ADD_SUBDIRECTORY (openpsi)
+		ENDIF (HAVE_OPENPSI)
 
 	ENDIF (HAVE_ATOMSPACE)
 
-	IF (HAVE_CYTHON AND PYTHONINTERP_FOUND)
+	IF (HAVE_CYTHON AND HAVE_NOSETESTS)
 		ADD_SUBDIRECTORY (cython)
-		ADD_SUBDIRECTORY (python)
-	ENDIF (HAVE_CYTHON AND PYTHONINTERP_FOUND)
-
-	IF (HAVE_ATTENTION)
-		ADD_SUBDIRECTORY (dynamics)
-	ENDIF (HAVE_ATTENTION)
-
-	ADD_SUBDIRECTORY (learning)
+	ENDIF (HAVE_CYTHON AND HAVE_NOSETESTS)
 
 ENDIF (CXXTEST_FOUND)
+
+IF (HAVE_GHOST)
+	ADD_SUBDIRECTORY(ghost)
+ENDIF(HAVE_GHOST)

@@ -15,7 +15,7 @@
                (picked (list-ref list-of-results (random (length list-of-results))))
                ; TODO: Should use gen-sentences when new microplanner is ready
                (generated (sureal (gar picked))))
-            (if (null? generated)
+            (if (nil? generated)
                 ; Do it again if the chosen one can't be used to generate a sentence
                 (pick-and-generate (delete! generated list-of-results))
                 (begin
@@ -41,6 +41,9 @@
     (begin-thread
         (imperative-process (get-input-sent-node))
     )
+
+    ; Return for the GroundedSchemaNode
+    (Set)
 )
 
 (define (call-fuzzy)
@@ -52,8 +55,8 @@
             (if (equal? (cog-arity fuzzy-results) 0)
                 (State fuzzy-reply no-result)
                 (let ((rtn (pick-and-generate (cog-outgoing-set fuzzy-results))))
-                    (cog-extract fuzzy-results)
-                    (if (null? rtn)
+                    (cog-extract! fuzzy-results)
+                    (if (nil? rtn)
                         ; Could happen if none of them can be used to generate
                         ; an actual sentence
                         (State fuzzy-reply no-result)
@@ -64,6 +67,9 @@
             (State fuzzy process-finished)
         )
     )
+
+    ; Return for the GroundedSchemaNode
+    (Set)
 )
 
 (define (call-aiml)
@@ -79,15 +85,44 @@
             (State aiml process-finished)
         )
     )
+
+    ; Return for the GroundedSchemaNode
+    (Set)
 )
 
-(define (pickup-reply)
-    (let* ((pickup-sents (cog-incoming-set (Concept (chat-prefix "PickupSentence"))))
-           (chosen-sent (list-ref pickup-sents (random (length pickup-sents))))
-           (sent-node (gar chosen-sent))
-           (words (get-word-list sent-node)))
-        (apply say (cog-outgoing-set words))
+(define (call-emotion-state-response)
+    (State emotion-state-reply (emotion-state-inquiry-reply))
+    (State emotion-state process-finished))
+
+(define (emotion-state-inquiry-reply)
+    ; psi-current-emotion-state node below gets defined in ros-behavior-scripting
+    ; in psi-dyanmics.scm, but that might not be loaded, so defining it here as
+    ; well. Perhaps this should be defined in openpsi/psi-updater.scm and made
+    ; part of the openpsi module.
+    (define psi-current-emotion-state
+        (Concept (string-append psi-prefix-str "current emotion state")))
+    ;(define current-emotion (psi-get-value psi-current-emotion-state))
+    (define current-emotion (cog-outgoing-set (cog-execute! (Get
+        (TypedVariable (Variable "$f") (Type "ConceptNode"))
+        (State psi-current-emotion-state (Variable "$f"))))))
+
+    ;(display "in emotion-state-inquiry-response \n")
+    (if (not (nil? current-emotion))
+        (let ((current-emotion-word (substring (cog-name (car current-emotion))
+                (string-length psi-prefix-str))))
+            (List (text2wordnodes
+                (string-append "I feel " current-emotion-word))))
+        (List (text2wordnodes "I am doing okay"))
     )
+)
+
+(define (count-and-reply schema)
+    (define num (cog-name (cog-execute! schema)))
+    (define num-no-dot (string-take num (string-index num #\.)))
+    (apply say (text2wordnodes (string-append "I see " num-no-dot)))
+
+    ; Return for the GroundedSchemaNode
+    (Set)
 )
 
 (define-public (say . words)
@@ -97,22 +132,21 @@
     ; Inheritance
     ;     Concept "happy"
     ;     Concept "Positive"
-    (map
-        (lambda (w)
-            (set! utterance (string-append utterance " " (cog-name w)))
-            (map
-                (lambda (i)
-                    (if (equal? (cog-type i) 'InheritanceLink)
-                        (cond
-                            ((equal? (cog-name (gdr i)) "Positive")
-                                (set! utterance (string-append utterance
-                                    "<Positive, " (number->string (cog-stv-strength i)) ">")))
-                            ((equal? (cog-name (gdr i)) "Negative")
-                                (set! utterance (string-append utterance
-                                    "<Negative, " (number->string (cog-stv-strength i)) ">"))))))
-                (cog-incoming-set (Concept (cog-name w)))))
-        words
-    )
+    (map (lambda (w)
+        (set! utterance (string-append utterance " " (cog-name w)))
+        (if sentiment-analysis
+            (map (lambda (i)
+                (if (equal? (cog-type i) 'InheritanceLink)
+                    (cond
+                        ((equal? (cog-name (gdr i)) "Positive")
+                            (set! utterance (string-append utterance
+                                "<Positive, " (number->string (cog-mean i)) ">")))
+                        ((equal? (cog-name (gdr i)) "Negative")
+                            (set! utterance (string-append utterance
+                                "<Negative, " (number->string (cog-mean i)) ">")))
+                    )))
+            (cog-incoming-set (Concept (cog-name w))))))
+        words)
 
     ; Remove those '[', ']' and '\' that may exist in the output
     ; The square brackets are sometimes generated by Link Parser (which
@@ -138,13 +172,35 @@
     )
 
     (reset-all-chatbot-states)
+
+    ; Return for the GroundedSchemaNode
+    (Set)
 )
 
 (define (reply anchor)
     (let ((ans-in-words (cog-chase-link 'StateLink 'ListLink anchor)))
-        (if (null? ans-in-words)
-            '()
+        (if (nil? ans-in-words)
+            ; Return for the GroundedSchemaNode
+            (Set)
             (apply say (cog-outgoing-set (car ans-in-words)))
         )
     )
+)
+
+;-------------------------------------------------------------------------------
+
+(for-each
+    (lambda (w)
+        (Evaluation (Predicate "quick reply")
+            (List (map Word (string-split w #\ ))))
+    )
+    (list "ok" "alright" "sure" "keep going" "go ahead" "carry on")
+)
+
+(define (ack-the-statement)
+    (define qr (cog-execute! (RandomChoice (Get
+        (TypedVariable (Glob "$reply") (Type "WordNode"))
+            (Evaluation (Predicate "quick reply")
+                (List (Glob "$reply")))))))
+    (apply say (cog-outgoing-set qr))
 )

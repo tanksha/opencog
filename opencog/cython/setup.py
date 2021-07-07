@@ -39,7 +39,6 @@ ext = Extension(
         "/opt/local/include" # For MacPorts
         ],
     libraries=["stdc++",
-        "boost_system-mt","boost_thread-mt", # boost dependencies
         # opencog libraries
         "atomspace",
         "util"
@@ -63,7 +62,6 @@ helper_ext = Extension(
         "/opt/local/include" # For MacPorts
         ],
     libraries=["stdc++",
-        "boost_system-mt","boost_thread-mt", # boost dependencies
         ],
     library_dirs=[
         "/opt/local/lib", # For MacPorts
@@ -75,7 +73,7 @@ setup(name = 'pyopencog',
     author = 'Joel Pitt',
     author_email = 'joel@opencog.org',
     url = 'http://wiki.opencog.org/w/Python',
-    long_description = read('README'),
+    long_description = read('README.md'),
     version = '0.1',
     classifiers=[
         "Development Status :: 3 - Alpha",

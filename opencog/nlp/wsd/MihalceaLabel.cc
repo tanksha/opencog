@@ -17,7 +17,7 @@
 
 #include <opencog/util/platform.h>
 #include <opencog/atoms/base/Node.h>
-#include <opencog/truthvalue/CountTruthValue.h>
+#include <opencog/atoms/truthvalue/CountTruthValue.h>
 #include <opencog/nlp/wsd/ForeachWord.h>
 
 // #define DEBUG
@@ -130,13 +130,9 @@ bool MihalceaLabel::annotate_word_sense(const Handle& word_sense)
 #endif
 
 	// Create a link connecting this word-instance to this word-sense.
-	HandleSeq out;
-	out.push_back(word_instance);
-	out.push_back(word_sense);
-
 	// Give it a true truth value; but no confidence.
 	TruthValuePtr ctv(CountTruthValue::createTV(1.0f, 0.0f, 1.0f));
-	atom_space->add_link(INHERITANCE_LINK, out)->setTruthValue(ctv);
+	atom_space->add_link(INHERITANCE_LINK, word_instance, word_sense)->setTruthValue(ctv);
 
 	return false;
 }
@@ -145,13 +141,13 @@ bool MihalceaLabel::annotate_word_sense(const Handle& word_sense)
 
 bool MihalceaLabel::have_sense(const Handle& h)
 {
-	if (h->getType() == WORD_SENSE_LINK) return true;
+	if (h->get_type() == WORD_SENSE_LINK) return true;
 	return false;
 }
 
 bool MihalceaLabel::pull_pos(const Handle& sense_h)
 {
-	atom_space->fetch_incoming_set(sense_h, false);
+	// atom_space->fetch_incoming_set(sense_h, false);
 	return false;
 }
 
@@ -174,7 +170,7 @@ void MihalceaLabel::fetch_senses(const Handle& lemma_h)
    if (rc) return;
 
 	// If we are here, we need to pull senses from the database.
-	atom_space->fetch_incoming_set(lemma_h, false);
+	// atom_space->fetch_incoming_set(lemma_h, false);
 
 	// Also pull the POS tags.
 	foreach_binary_link(lemma_h, WORD_SENSE_LINK, &MihalceaLabel::pull_pos, this);

@@ -1,295 +1,150 @@
+;
+; action-selector.scm
+;
+; The action selector chooses one (or more) rules to run.
+;
 ; Copyright (C) 2016 OpenCog Foundation
+; Copyright (C) 2017 MindCloud
 
-(use-modules (opencog) (opencog exec))
+(use-modules (opencog) (opencog attention-bank))
 
-(load "demand.scm")
-(load "rule.scm")
-(load "utilities.scm")
-
-; --------------------------------------------------------------
-(define-public (psi-action-selector-pattern)
+; ----------------------------------------------------------------------
+(define (psi-set-action-selector! component exec-term)
 "
-  This returns the StateLink that is used for specifying the action selecting
-  evaluatable term.
+  psi-set-action-selector COMPONENT EXEC-TERM
+    Sets EXEC-TERM as the function used to select rules for the COMPONENT.
 
-  A StateLink is used instead of an InheritanceLink because there could only
-  be one active action-rule-selector at a time even though there could be
-  multiple possible action-rule-selectors. And this enables dynamically
-  changing the action-rule-selector through learning.
+    EXEC-TERM should be an executable atom.
+    COMPONENT should be a node representing a component.
 "
-    (StateLink
-        (ConceptNode (string-append psi-prefix-str "action-selector"))
-        (VariableNode "$dpn")
-    )
-)
-
-; --------------------------------------------------------------
-(define-public (psi-action-selector-set! dsn)
-"
-  Sets the given DefinedSchemaNode to be used for selecting actions.
-
-  dsn:
-  - The DefinedSchemaNode that represents the executable-term used for
-    selecting the psi-rules that should have their actions and goals executed.
-"
-    ; Check arguments
-    (if (not (equal? (cog-type dsn) 'DefinedSchemaNode))
-        (error "Expected DefinedSchemaNode got: " dsn))
-
-    (StateLink
-        (ConceptNode (string-append psi-prefix-str "action-selector"))
-        dsn
-    )
-)
-
-; --------------------------------------------------------------
-(define-public (psi-add-action-selector exec-term name)
-"
-  Returns the DefinedSchemaNode that represents the executable term
-  after defining it as an openpsi action-selector.
-
-  exec-term:
-  - An executable term.
-
-  name:
-  -  A string for naming the action-rule-selector. The name will be prefixed
-     by the following string `OpenPsi: action-rule-selector-`.
-"
-    ; Check arguments
-    (if (not (string? name))
-        (error "Expected second argument to be a string, got: " name))
-
-    ; TODO: Add checks to ensure the exec-term argument is actually executable
-    (let* ((z-name (string-append
-                        psi-prefix-str "action-selector-" name))
-           (selector-dsn (cog-node 'DefinedSchemaNode z-name)))
-       (if (null? selector-dsn)
-           (begin
-               (set! selector-dsn (DefinedSchemaNode z-name))
-               (DefineLink selector-dsn exec-term)
-
-                (EvaluationLink
-                    (PredicateNode "action-selector-for")
-                    (ListLink selector-dsn (ConceptNode psi-prefix-str)))
-
-                selector-dsn
-           )
-
-           selector-dsn
-       )
-    )
-)
-
-(define-public (psi-get-action-selector-generic)
-"
-  Returns a list containing the user-defined action-selector.
-"
-    (cog-outgoing-set (cog-execute!
-        (GetLink (psi-action-selector-pattern))))
+  (psi-set-func! exec-term "#f" component "action-selector")
 )
 
 ; ----------------------------------------------------------------------
-(define-public (psi-set-action-selector exec-term demand-node)
+(define (psi-action-selector component)
 "
-  psi-set-action-selector EXEC-TERM DEMAND-NODE - Sets EXEC-TERM as the
-  the function to be used as action-selector for the rules of DEMAND-NODE.
+  psi-action-selector COMPONENT
+    Gets the action-selector of the COMPONENT.
 "
-    (psi-set-functionality exec-term #f demand-node "action-selector")
-)
-
-; ----------------------------------------------------------------------
-(define-public (psi-get-action-selector demand-node)
-"
-  psi-get-action-selector DEMAND-NODE - Gets the action-selector of
-  DEMAND-NODE.
-"
-    (psi-get-functionality demand-node "action-selector")
+  (psi-func component "action-selector")
 )
 
 ; --------------------------------------------------------------
-(define-public (psi-context-weight rule)
+(define (sort-by-weight RULE-LIST WEIGHT-FN)
 "
-  Returns the TruthValue of an evaluated context. The strength is known as
-  the weight(Sc) of the context.
-
-  rule:
-  - A psi-rule with context to be evaluated.
+  sort-by-weight RULE-LIST WEIGHT-FN
+    Sort RULE-LIST, according to the weights assigned by the WEIGHT-FN
+    function.
 "
-    (define (context-stv stv-list)
-    ; See and-side-effect-free-formula in pln-and-construction-rule
-        (stv
-            (fold * 1 (map (lambda (x) (tv-mean x)) stv-list))
-            (fold min 1 (map (lambda (x) (tv-conf x)) stv-list)))
-    )
-
-    (let* ((context (psi-get-context rule))
-        ; map-in-order is used to simulate SequentialAndLink assuming
-        ; psi-get-context maintaines, which is unlikely. What other options
-        ; are there?
-           (stvs (map-in-order cog-evaluate! context)))
-
-           (context-stv stvs)
-   )
+  (sort! RULE-LIST (lambda (RA RB) (> (WEIGHT-FN RA) (WEIGHT-FN RB))))
 )
 
 ; --------------------------------------------------------------
-(define-public (psi-action-weight rule)
+(define (rule-sc-weight RULE)
 "
-  Retruns the weight of an action in a single psi-rule(Wcagi)
-
-  rule:
-  - The psi-rule that has the action, for which the action weight is being
-  calcualated.
+  rule-sc-weight RULE
+    Return the weight of RULE, which is defined as product of strength
+    and confidence.
 "
-    ; NOTE: This check is required as ecan isn't being used continuesely.
-    ; Remove `most-weighted-atoms` version once ecan is integrated.
-    (if (or (equal? 0 (cog-af-boundary)) (equal? 1 (cog-af-boundary)))
-        ; Wcagi = Scga * Sc * 1 (assuming every rule is important)
-        (* (tv-mean (cog-tv rule)) ;Scga
-           (tv-mean (psi-context-weight rule))) ; Sc
-        ; Wcagi = Scga * Sc * STIcga
-        (* (tv-mean (cog-tv rule)) ;Scga
-           (tv-mean (psi-context-weight rule)) ; Sc
-           (assoc-ref (cog-av->alist (cog-av rule)) 'sti)) ; STIcga
-    )
+  (* (cog-confidence RULE) (cog-mean RULE))
 )
 
 ; --------------------------------------------------------------
-(define-public (psi-most-weighted-rules rule-list)
+(define (rule-sca-weight RULE)
 "
-  It returns a list with non-duplicating rules with the highest weight. If an
-  empty list is passed an empty list is returned. Weight of an psi-rule is as
-  defined in `psi-action-weight` function
-
-  rule-list:
-  - A list of psi-rules to be compared.
+  rule-sca-weight RULE
+    Return the weight of RULE, which defined as product of strength,
+    confidence, and short-term-importance.
 "
-    (define (pick rule lst) ; prev is a `lst` and next `atom`
-        (cond
-            ((> (psi-action-weight (car lst)) (psi-action-weight rule)) lst)
-            ((= (psi-action-weight (car lst)) (psi-action-weight rule))
-                (append lst (list rule)))
-            (else (list rule))))
-
-    (if (null? rule-list)
-        '()
-        (delete-duplicates (fold pick (list (car rule-list)) rule-list))
-    )
+  (* (cog-confidence RULE) (cog-mean RULE) (cog-av-sti RULE))
 )
 
 ; --------------------------------------------------------------
-(define-public (psi-default-action-selector a-random-state)
+(define (pick-from-weighted-list ALIST WEIGHT-FUNC)
 "
-  Returns a list of one of the most-important-weighted and satisfiable psi-rule
-  or an empty list. A single psi-rule is returned so as help avoid mulitple
-  actions of the same effect or type(aka semantic of the action) from being
-  executed. If a satisfiable rule doesn't exist then the empty list is returned.
+  pick-from-weighted-list ALIST WEIGHT-FUNC
+    Returns a list containing an item picked from ALIST, based
+    on the WEIGHT-FUNC. If ALIST is empty, then returns the empty
+    list. If ALIST is not empty, then randomly select from the list,
+    with the most heavily weighted, as calcualted by WEIGHT-FUNC.
+    The random distribution is a uniform weighted interval
+    distribution.
+"
+  ; Function to sum up the total weights in the list.
+  (define (accum-weight rule-list)
+    (if (nil? rule-list) 0.0
+      (+ (WEIGHT-FUNC (car rule-list))
+        (accum-weight (cdr rule-list)))))
 
-  a-random-state:
-  - A random-state object used as a seed for choosing how multiple satisfiable
-  psi-rules with the same weight are to be choosen.
+  ; Recursively move through the list of rules, until the
+  ; sum of the weights of the rules exceeds the cutoff.
+  ; TODO Why have a cutoff? That is why return a list of rules
+  ; instead of just picking the one with the highest weight.
+  (define (pick-rule wcut rule-list)
+    ; Subtract weight of the first rule.
+    (define ncut (- wcut (WEIGHT-FUNC (car rule-list))))
+
+    ; If we are past the cutoff, then we are done.
+    ; Else recurse, accumulating the weights.
+    (if (<= ncut 0.0)
+      (car rule-list)
+      (pick-rule ncut (cdr rule-list))))
+
+  (cond
+    ; If the list is empty, we can't do anything.
+    ((nil? ALIST) '())
+
+    ; If there's only one rule in the list, return it.
+    ((nil? (cdr ALIST)) ALIST)
+
+    ; Else randomly pick among the most-weighted rules.
+    (else
+      (let* (
+        ; Create a list of rules sorted by weight.
+        (sorted-rules (sort-by-weight ALIST WEIGHT-FUNC))
+        ; The total weight of the rule-list.
+        (total-weight (accum-weight sorted-rules))
+        ; Pick a number from 0.0 to total-weight.
+        (cutoff (* total-weight
+          (random:uniform (random-state-from-platform)))))
+
+        (list (pick-rule cutoff sorted-rules))
+      ))
+  )
+)
+
+; --------------------------------------------------------------
+(define (psi-select-rules component)
 "
-    (define (choose-rules)
-        ; NOTE: This check is required as ecan isn't being used continuesely.
-        ; Remove `most-weighted-atoms` version once ecan is integrated.
-        (if (or (equal? 0 (cog-af-boundary)) (equal? 1 (cog-af-boundary)))
-            (most-weighted-atoms (psi-get-all-satisfiable-rules))
-            (most-important-weighted-atoms (psi-get-all-satisfiable-rules))
-        )
+  psi-select-rules COMPONENT
+
+  Run the action-selector associated with COMPONENT, and return a list
+  of psi-rules. If there aren't any rules returned on execution of the
+  action-selector null is returned.
+"
+  (define (rule-list-flatten rule-list)
+    (if (and (equal? (length rule-list) 1)
+             (or (equal? 'SeLink (cog-type (car rule-list)))
+                 (equal? 'ListLink (cog-type (car rule-list)))))
+        (rule-list-flatten (cog-outgoing-set (car rule-list)))
+        rule-list
     )
+  )
 
-    (let ((rules (choose-rules)))
-        (if (null? rules)
+  (let ((acs (psi-action-selector component)))
+    (if (nil? acs)
+      (error
+        (format #f "Define an action-selector for component ~a" component))
+      (let ((result (cog-execute! acs)))
+          (if (nil? result)
             '()
-            (list (list-ref rules (random (length rules) a-random-state)))
-        )
+            ; Depending on how the action-selector is defined,
+            ; the list of psi-rules returned may be nested in
+            ; one or more ListLink/SetLink, so remove the
+            ; nested links until we reach the actual psi-rules.
+            (rule-list-flatten (cog-outgoing-set result))
+          )
+      )
     )
-)
-
-; --------------------------------------------------------------
-(define-public (psi-select-rules)
-"
-  Returns a list of psi-rules that are satisfiable by using the action-selector
-  you defined or the default-action-selector predefined if you haven't defined
-  a different action-selector.
-"
-    (let ((dsn (psi-get-action-selector-generic)))
-        (if (null? dsn)
-            (psi-default-action-selector (random-state-from-platform))
-            (let ((result (cog-execute! (car dsn))))
-                (if (equal? (cog-type result) 'SetLink)
-                    (cog-outgoing-set result)
-                    (list result)
-                )
-            )
-        )
-    )
-)
-
-; --------------------------------------------------------------
-(define-public (psi-default-action-selector-per-demand a-random-state demand)
-"
-  Returns a list of one of the most-important-weighted and satisfiable psi-rule
-  or an empty list. A single psi-rule is returned so as help avoid mulitple
-  actions of the same effect or type(aka semantic of the action) from being
-  executed. If a satisfiable rule doesn't exist then the empty list is returned.
-
-  a-random-state:
-  - A random-state object used as a seed for choosing how multiple satisfiable
-  psi-rules with the same weight are to be choosen.
-"
-    (define (choose-rules)
-        ; NOTE: This check is required as ecan isn't being used continuesely.
-        ; Remove `most-weighted-atoms` version once ecan is integrated.
-        ; FIXME; Replace by
-        ; (psi-most-weighted-rules (psi-get-satisfiable-rules demand))
-        ;(if (or (equal? 0 (cog-af-boundary)) (equal? 1 (cog-af-boundary)))
-            (most-weighted-atoms (psi-get-weighted-satisfiable-rules demand))
-            ;(most-important-weighted-atoms (psi-get-all-satisfiable-rules))
-        ;)
-    )
-
-    (let ((rules (choose-rules)))
-        (cond
-            ((null? rules) '())
-            ((equal? (tv-mean (cog-tv (car rules))) 0.0) '())
-            (else
-                (list (list-ref rules (random (length rules) a-random-state))))
-        )
-    )
-)
-
-; --------------------------------------------------------------
-(define-public (psi-select-rules-per-demand d)
-"
-  Returns a list of psi-rules that are satisfiable by using the action-selector
-  you defined or the default-action-selector predefined if you haven't defined
-  a different action-selector.
-"
-    (let ((as (psi-get-action-selector d)))
-        (if (null? as)
-            (psi-default-action-selector-per-demand
-                       (random-state-from-platform) d)
-            (let ((result (cog-execute! (car as))))
-                (if (equal? (cog-type result) 'SetLink)
-                    (cog-outgoing-set result)
-                    (list result)
-                )
-            )
-        )
-    )
-
-
-    ;(let ((demands (psi-get-all-demands)))
-    ;    ;NOTE:
-    ;    ; 1. If there is any hierarcy/graph, get the information from the
-    ;    ;    atomspace and do it here.
-    ;    ; 2. Any changes between steps are accounted for, i.e, there is no
-    ;    ;    caching of demands. This has a performance penality.
-    ;    ; FIXME:
-    ;    ; 1. Right now the demands are not separated between those that
-    ;    ;    are used for emotiong modeling vs those that are used for system
-    ;    ;    such as chat, behavior, ...
-    ;    (append-map select-rules demands)
-    ;)
+  )
 )
